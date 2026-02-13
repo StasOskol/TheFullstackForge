@@ -10,11 +10,10 @@ spring:
   application:
     name: chirp-service
 
-datasource:
   datasource:
-    url: ${JDBC_URL:jdbc:postgresql://localhost:5432/chirp_db}
-    username: ${JDBC_USER:postgres}
-    password: ${JDBC_PASSWORD:postgres}
+    url: ${JDBC_URL:jdbc:postgresql://localhost:5432/twit_ru}
+    username: ${JDBC_USER:fs_admin}
+    password: ${JDBC_PASSWORD:admin123}
     driver-class-name: org.postgresql.Driver
     dbcp2:
       default-schema: public
@@ -28,8 +27,8 @@ datasource:
   flyway:
     locations: classpath:/db/migration
     driver-class-name: org.postgresql.Driver
-    user: ${JDBC_USER:postgres}
-    password: ${JDBC_PASSWORD:postgres}
+    user: ${JDBC_USER:fs_admin}
+    password: ${JDBC_PASSWORD:admin123}
     enabled: true
     default-schema: public
 

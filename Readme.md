@@ -810,7 +810,114 @@ mvn --version
 
 6. Скачиваем шаблон `JAVA`
 
-7. Настраиваем параметры для работы приложения
+7. Заходим в DBeaver и создаём через `postgres` новую базу, эта задача не зависит, от предыдущей
+База `twit_ru` с владельцем `fs_admin`
+```sql
+CREATE DATABASE twit_ru OWNER fs_admin;
+```
+
+8. Заходим в папку с backend и подключаемся к нашей базе, через файл `application.yml`
+(возможна опечатка в проекте)
+```yml
+spring:
+  security:
+    user: # Можно удалить, если используете свою БД
+      name: admin
+      password: admin
+      roles: USER
+  docker:
+    compose:
+      enabled: false
+  application:
+    name: chirp-service
+
+  datasource:
+    url: ${JDBC_URL:jdbc:postgresql://localhost:5432/twit_ru}
+    username: ${JDBC_USER:fs_admin}
+    password: ${JDBC_PASSWORD:admin123}
+    driver-class-name: org.postgresql.Driver
+    dbcp2:
+      default-schema: public
+  jpa:
+    hibernate:
+      ddl-auto: ${DDL_AUTO:validate}
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: true
+  freemarker:
+    check-template-location: false
+  flyway:
+    locations: classpath:/db/migration
+    driver-class-name: org.postgresql.Driver
+    user: ${JDBC_USER:fs_admin}
+    password: ${JDBC_PASSWORD:admin123}
+    enabled: true
+    default-schema: public
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+  api-docs:
+    path: /v3/api-docs
+```
+
+9. Запуск приложения
+Обратите внимение, команда производится в папке backend
+```bash
+mvn clean spring-boot:run
+```
+
+10. Проверьте через `Dbeaver`, что у вас появились таблицы, они создались автоматически из-за того, что есть папка db, а в ней migration, там описаны какие таблицы должны создаться при запуске проекта.
+
+11. Запуск осуществлён успешно, таблицы созданы
+Для проверки запустим сваггер, чтобы посмотреть, какие api у нас существуют. Для этого запустим браузер и ввдем в поисковую строку:
+```bash
+http://localhost:8080/swagger-ui/index.html
+```
+
+12. Ищем в сваггере `auth-controller` с post-запросом `/api/v1/auth/register`
+Чтобы заработали `api` - нужен ключ к ним, иначе при запросе будет выдаваться 403 статус - нет прав
+
+Это `api` регистрирует пользователя и выдаёт ему `token`, который позволяет пользоваться другими запросами
+
+Для регистрации первого пользователя и для захода в сервис мы будем использовать приложение `postman`. 
+
+Это приложение скачивается отдельно с официального сайта postman, либо устанавливается расширение (плагин) в VS code
+
+Я буду использовать расширение. Скачиваем расширение с postman, регистрируемся и заходим в приложение.
+
+* Нажимаем `New HTTP Request` и заполняем данные внутри
+<img src="./img/postman-register.png" alt="register" />
+
+Красными стрелками обозначен запрос, который мы отправляем на сервер, а жёлтыми стрелками ответ от сервера
+
+Если ответ примерно такой как на скрине, то всё отлично, если ошибка, значит, что-то сделали не так
+
+* После регистрации посмотрите в `DBeaver` в таблицу `users`, у вас появится пользователь в этой таблице
+
+Поздравляю! Приложение бека работает! Теперь можем залогиниться и посмотреть профиль пользователя
+
+13. Логинимся через `Postman`, здесь ничего сложного нет, просто создаём новый запрос `New HTTP Request` и заполняем:
+<img src="./img/postman-login.png" alt='login' />
+
+Здесь ничего нового, но обратите внимение, что при логировании не username, а логин. И выдаётся при успешном запросе `Bearer token`, который позволяет использовать другие запросы. Например, если мы сейчас захотим посмотреть информацию по адресу (запрос `localhost:8080/`), то у нас ничего не получится и выдаст 403, не хватает прав. Для этого и применяется `Bearer token` с другого запроса, чтобы дать доступ.
+
+Пример с `Postman` для `get`-запроса `localhost:8080/` с кодом `403`
+<img src="./img/postman-403.png" alt='403' />
+
+Чтобы сработал запрос `localhost:8080/`
+- Нужно скопировать `Bearer tocken` c ответа запроса `localhost:8080/api/v1/auth/login`
+- Зайти в запрос `localhost:8080/` в раздел `Authorization` и найти тип `Bearer`, а справа вставить `token`
+<img src="./img/postman-norm-res.png" alt='norm-res' />
+
+Ответ: Hello World - это замечатльно!
+
+Все эти запросы мы делили в `postman`, это приложение используется для отладки, тестировки и проверки. Вся реакция для пользователей осуществляется на `frontend`
+
+14. Разворот `frontend`-приложения для работы с `backend`-приложения
+Для этого скачайте шаблон `react`-приложения. В моём случае я скачиваю проект `https://github.com/StasOskol/react-vite`
+
+И размещаю его в своём репозитории в папке `frontend`
 
 
 
