@@ -774,9 +774,47 @@ WHERE id = 9;
 
 Всё это работа архитектора, довольно тяжёлая и код писать сложно, поэтому изменение и практику мы будем осуществлять в приложении бека на языке `JAVA`
 
+# Разворот backend-приложения под db
+Скачайте <a href="https://download.oracle.com/java/21/archive/jdk-21.0.9_windows-x64_bin.msi" target="_blank">JDK 21</a>
+
+Добавьте в переменные среды:
+```cmd
+SET JAVA_HOME=C:\Program Files\Java\jdk-21
+SET PATH=%JAVA_HOME%\bin;%PATH%
+```
+
+Проверьте установку:
+```cmd
+java --version
+```
+
+Добавление в PATH
+```
+echo 'export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+* Установка Maven
+1. Скачайте <a href="https://www.npackd.org/p/org.apache.Maven/3.9.6" targer="_blank">apache-maven-3.9.6</a>
+
+2. Распакуйте в C:\Program Files\apache-maven-3.9.6
+
+3. Нажмите правой кнопкой по "Мой компьютер" -> свойства -> Дополнительные параметры системы -> переменный среды -> двойное нажатие на `Path` -> Создать и в поле вставляем: `C:\Program Files\apache-maven-3.9.6\bin`
+
+4. Перезапустить компьютер и проверьте
+```cmd
+mvn --version
+```
+
+5. Для работы с java проще работать через `IntelliJ IDEA`
+
+6. Скачиваем шаблон `JAVA`
+
+7. Настраиваем параметры для работы приложения
 
 
-#### Вопросы по db
+
+# Вопросы по db
 1. Почему не MySQL, а postgresSQL?
     - PostgresSQL "жёстко" тоже самое, что и MySQL, но с дополнениями и пакетами, которые улучшают (увеличенная скорость, более надёжная и безопасная)
 

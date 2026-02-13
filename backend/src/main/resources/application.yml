@@ -1,0 +1,41 @@
+spring:
+  security:
+    user: # Можно удалить, если используете свою БД
+      name: admin
+      password: admin
+      roles: USER
+  docker:
+    compose:
+      enabled: false
+  application:
+    name: chirp-service
+
+datasource:
+  datasource:
+    url: ${JDBC_URL:jdbc:postgresql://localhost:5432/chirp_db}
+    username: ${JDBC_USER:postgres}
+    password: ${JDBC_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    dbcp2:
+      default-schema: public
+  jpa:
+    hibernate:
+      ddl-auto: ${DDL_AUTO:validate}
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: true
+  freemarker:
+    check-template-location: false
+  flyway:
+    locations: classpath:/db/migration
+    driver-class-name: org.postgresql.Driver
+    user: ${JDBC_USER:postgres}
+    password: ${JDBC_PASSWORD:postgres}
+    enabled: true
+    default-schema: public
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+  api-docs:
+    path: /v3/api-docs
