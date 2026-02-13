@@ -1,7 +1,7 @@
 # The Fullstack Forge
 Фулстек-Кузница
 
-> 01.02.2026 (описание работы с db + развёртывание backend)
+> 13.02.2026 (описание работы с db + развёртывание backend)
 
 - [Первый запуск db](#Первый-запуск-db)
 - [Вопросы по db](#Вопросы-по-db)
@@ -68,18 +68,7 @@ psql (18.0)
 
 * Гости (Read-only доступ) — могут зайти в квартиру, но ничего не меняют.
 
-3. Создание базы данных (Правой кнопкой по postgress -> Редактор SQL -> Открыть SQL скрипт)
-```sql
--- Создаем базу для нашего проекта
-CREATE DATABASE the_fullstack_force;
-```
-
-Проверяем:
-```sql
-SELECT datname FROM pg_database WHERE datname = 'the_fullstack_force';
-```
-
-4. Создаем пользователей:
+3. Создаем пользователей: (Правой кнопкой по postgress -> Редактор SQL -> Открыть SQL скрипт)
 ```sql
 -- 1. Администратор (самый главный)
 CREATE USER fs_admin WITH PASSWORD 'admin123';
@@ -91,12 +80,18 @@ CREATE USER fs_developer WITH PASSWORD 'dev123';
 CREATE USER fs_viewer WITH PASSWORD 'viewer123';
 ```
 
-5. Назначаем администратора владельцем:
+4. Создание базы данных с назначение владельца
 ```sql
-ALTER DATABASE the_fullstack_force OWNER TO fs_admin;
+-- Создаем базу для нашего проекта
+CREATE DATABASE the_fullstack_force OWNER fs_admin;
 ```
 
-6. Подключаемся к НОВОЙ базе как администратор
+Проверяем:
+```sql
+SELECT datname FROM pg_database WHERE datname = 'the_fullstack_force';
+```
+
+5. Подключаемся к НОВОЙ базе как администратор
 * ВАЖНО! Теперь нужно подключиться к the_fullstack_force, а не к postgres!
     - Создайте новое подключение:
 ```text
@@ -107,7 +102,7 @@ Username: fs_admin
 Password: admin123
 ```
 
-7. Открываем новый SQL скрипт в новом подключении и создаём таблицу:
+6. Открываем новый SQL скрипт в новом подключении и создаём таблицу:
 ```sql
 create table if not exists products (
 	id bigint generated always as identity primary key, -- уникальный номер
@@ -123,7 +118,7 @@ create table if not exists products (
 
 При создании таблицы обратите внимание на каждую строку, а более подробно на `if not exists` такую строчку нужно добалять везде, так как она говорит о том, что созданий таблицу, если её не существует. Если не прописывать, то можно перезатереть данные таблицы и положить проект
 
-8. Выполняем задание номер 1: `Добавить в таблицу продуктов 3-4 записи`
+7. Выполняем задание номер 1: `Добавить в таблицу продуктов 3-4 записи`
     - Добавляем одну запись в таблицу
 ```sql
 insert into products (name, category, price, quantity)
@@ -158,7 +153,7 @@ LIMIT 2;
 
 Но эти команды всё равно не безопасные, лучше использовать `explain` или `explain analize`
 
-9. Пример использования команды `explain`
+8. Пример использования команды `explain`
 ```sql
 explain select * from products
 ```
@@ -184,7 +179,7 @@ EXPLAIN - только планирование
 * width=36 — средний размер строки в байтах
 ---
 
-10. Пример использования команды `explain analyze`
+9. Пример использования команды `explain analyze`
 ```sql
 explain analyze select * from products
 ```
@@ -215,7 +210,7 @@ explain analyze select * from products
 
 * Execution Time — общее время выполнения
 
-11. Когда что использовать
+10. Когда что использовать
 * Используйте EXPLAIN когда:
     - Хотите быстро посмотреть план запроса
 
@@ -234,7 +229,7 @@ explain analyze select * from products
 
     - Нужны реальные метрики (время, строки)
 
-12. Подключаем других пользователей к базе и настраиваем права
+11. Подключаем других пользователей к базе и настраиваем права
 ```sql
 -- 1. Даем права на подключение к базе для всех пользователей
 GRANT CONNECT ON DATABASE the_fullstack_force TO fs_developer, fs_viewer;
@@ -255,7 +250,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON products TO fs_developer;
 GRANT SELECT ON products TO fs_viewer;
 ```
 
-13. Создаем схему для лучшей организации (опционально, но рекомендуется)
+12. Создаем схему для лучшей организации (опционально, но рекомендуется)
 ```sql
 -- Создаем отдельную схему для нашего приложения
 CREATE SCHEMA IF NOT EXISTS app_schema;
@@ -271,7 +266,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA app_schema TO fs_de
 GRANT SELECT ON ALL TABLES IN SCHEMA app_schema TO fs_viewer;
 ```
 
-14. Права на будущие таблицы в схеме app_schema
+13. Права на будущие таблицы в схеме app_schema
 ```sql
 -- Автоматически давать права на новые таблицы в схеме
 ALTER DEFAULT PRIVILEGES IN SCHEMA app_schema
@@ -285,7 +280,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA app_schema
 GRANT USAGE, SELECT ON SEQUENCES TO fs_developer;
 ```
 
-15. Тестируем права разных пользователей
+14. Тестируем права разных пользователей
 
 fs_developer (должен читать и изменять)
 
@@ -343,7 +338,7 @@ UPDATE app_schema.products SET price = 0;  -- Обновление ✗
 DELETE FROM app_schema.products; 
 ```
 
-16. Создаем дополнительные таблицы с правами
+15. Создаем дополнительные таблицы с правами
 Вернитесь в подключение как fs_admin и создайте еще таблицу:
 ```sql
 -- Таблица заказов
@@ -359,6 +354,11 @@ CREATE TABLE IF NOT EXISTS app_schema.orders (
 ```
 
 Права автоматически применятся благодаря ALTER DEFAULT PRIVILEGES
+
+Если не хочется таким образом создавать схемы `app_schema.orders` используйте команду для переключения на нужную схему:
+```sql
+SET schema 'app_schema';
+```
 
 16. Резюме созданной структуры
 ```text
@@ -382,7 +382,7 @@ CREATE TABLE IF NOT EXISTS app_schema.orders (
 
 17. Удалите ненужную таблицу:
 ```sql
-DROP TABLE app_schema.orders;
+DROP TABLE orders;
 ```
 
 F5
@@ -394,12 +394,12 @@ F5
 1. Создаём таблицу категорий
 ```sql
 -- Таблица категорий продуктов
-CREATE TABLE IF NOT EXISTS app_schema.categories (
+CREATE TABLE IF NOT EXISTS categories (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name VARCHAR(50) UNIQUE NOT NULL,           -- уникальное название категории
     slug VARCHAR(50) UNIQUE NOT NULL,           -- URL-дружественное имя (например: smartphones)
     description TEXT,                           -- описание категории
-    parent_id BIGINT REFERENCES app_schema.categories(id), -- иерархия (подкатегории)
+    parent_id BIGINT REFERENCES categories(id), -- иерархия (подкатегории)
     is_active BOOLEAN DEFAULT true,             -- активна ли категория
     sort_order INTEGER DEFAULT 0,               -- порядок сортировки
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -409,15 +409,15 @@ CREATE TABLE IF NOT EXISTS app_schema.categories (
 
 ```sql
 -- Комментарий к таблице
-COMMENT ON TABLE app_schema.categories IS 'Таблица категорий товаров';
-COMMENT ON COLUMN app_schema.categories.slug IS 'URL-дружественное название (латиница, без пробелов)';
-COMMENT ON COLUMN app_schema.categories.parent_id IS 'ID родительской категории (NULL для корневых)';
+COMMENT ON TABLE categories IS 'Таблица категорий товаров';
+COMMENT ON COLUMN categories.slug IS 'URL-дружественное название (латиница, без пробелов)';
+COMMENT ON COLUMN categories.parent_id IS 'ID родительской категории (NULL для корневых)';
 ```
 
 2. Создаём таблицу связки
 Создаем таблицу-связку для отношения многие-ко-многим
 ```sql
-CREATE TABLE IF NOT EXISTS app_schema.product_categories (
+CREATE TABLE IF NOT EXISTS product_categories (
     product_id BIGINT NOT NULL,
     category_id BIGINT NOT NULL,
     is_primary BOOLEAN DEFAULT false,
@@ -427,33 +427,33 @@ CREATE TABLE IF NOT EXISTS app_schema.product_categories (
 ```
 
 ```sql
-COMMENT ON TABLE app_schema.product_categories IS 'Связь продуктов и категорий (many-to-many)';
-COMMENT ON COLUMN app_schema.product_categories.is_primary IS 'Является ли основной категорией для продукта';
+COMMENT ON TABLE product_categories IS 'Связь продуктов и категорий (many-to-many)';
+COMMENT ON COLUMN product_categories.is_primary IS 'Является ли основной категорией для продукта';
 ```
 
 3. Обновляем зависимости и данные
 ```sql
 -- Сначала создаем резервную копию данных
-CREATE TABLE IF NOT EXISTS app_schema.products_backup AS 
-SELECT * FROM app_schema.products;
+CREATE TABLE IF NOT EXISTS products_backup AS 
+SELECT * FROM products;
 
 -- Удаляем старое поле category (если оно есть)
-ALTER TABLE app_schema.products 
+ALTER TABLE products 
 DROP COLUMN IF EXISTS category;
 
 -- Добавляем поле для основной категории (опционально, если нужно быстро получать)
-ALTER TABLE app_schema.products 
-ADD COLUMN IF NOT EXISTS primary_category_id BIGINT REFERENCES app_schema.categories(id);
+ALTER TABLE products 
+ADD COLUMN IF NOT EXISTS primary_category_id BIGINT REFERENCES categories(id);
 
 -- Комментарий
-COMMENT ON COLUMN app_schema.products.primary_category_id IS 'ID основной категории (дублирование для оптимизации)';
+COMMENT ON COLUMN products.primary_category_id IS 'ID основной категории (дублирование для оптимизации)';
 ```
 
 4. Заполняем данным таблицы
 * Категории:
 
 ```sql
-INSERT INTO app_schema.categories (name, slug, description) VALUES
+INSERT INTO categories (name, slug, description) VALUES
 ('Смартфоны', 'smartphones', 'Мобильные телефоны и смартфоны'),
 ('Ноутбуки', 'laptops', 'Переносные компьютеры'),
 ('Аксессуары', 'accessories', 'Аксессуары для техники'),
@@ -476,173 +476,126 @@ INSERT INTO app_schema.categories (name, slug, description, parent_id) VALUES
 ```
 
 * Связываем существующие продукты с категориями
+1. Проверим, что у нас есть
 ```sql
--- 1. Сначала свяжем iPhone 15 с категорией "Apple iPhone"
-INSERT INTO app_schema.product_categories (product_id, category_id, is_primary)
-SELECT 
-    p.id as product_id,
-    c.id as category_id,
-    true as is_primary
-FROM app_schema.products p
-CROSS JOIN app_schema.categories c
-WHERE p.name = 'iPhone 15' AND c.slug = 'apple-iphone';
-
--- 2. Свяжем MacBook Air с категорией "Ноутбуки"
-INSERT INTO app_schema.product_categories (product_id, category_id, is_primary)
-SELECT 
-    p.id as product_id,
-    c.id as category_id,
-    true as is_primary
-FROM app_schema.products p
-CROSS JOIN app_schema.categories c
-WHERE p.name = 'MacBook Air M2' AND c.slug = 'laptops';
-
--- 3. Свяжем Samsung Galaxy с категориями "Android" и "Смартфоны"
-INSERT INTO app_schema.product_categories (product_id, category_id, is_primary)
-VALUES
-((SELECT id FROM app_schema.products WHERE name = 'Samsung Galaxy S24'),
- (SELECT id FROM app_schema.categories WHERE slug = 'android'), true),
-((SELECT id FROM app_schema.products WHERE name = 'Samsung Galaxy S24'),
- (SELECT id FROM app_schema.categories WHERE slug = 'smartphones'), false);
-
--- 4. Наушники Sony свяжем с несколькими категориями
-INSERT INTO app_schema.product_categories (product_id, category_id, is_primary)
-VALUES
-((SELECT id FROM app_schema.products WHERE name = 'Наушники Sony'),
- (SELECT id FROM app_schema.categories WHERE slug = 'accessories'), false),
-((SELECT id FROM app_schema.products WHERE name = 'Наушники Sony'),
- (SELECT id FROM app_schema.categories WHERE slug = 'headphones'), true),
-((SELECT id FROM app_schema.products WHERE name = 'Наушники Sony'),
- (SELECT id FROM app_schema.categories WHERE slug = 'audio'), false);
+-- 1. Какие продукты есть?
+SELECT id, name, price FROM products;
 ```
 
-* Обновляем поле primary_category_id в products
 ```sql
--- Обновляем products.primary_category_id на основе связей
-UPDATE app_schema.products p
+-- 2. Какие категории есть?
+SELECT id, name, slug, parent_id FROM categories ORDER BY id;
+```
+
+2. Связываем продукты с категориями
+```sql
+-- 1. iPhone 15 → Apple iPhone (основная) + Смартфоны (дополнительная)
+INSERT INTO product_categories (product_id, category_id, is_primary) VALUES
+(1, 9, true),   -- Apple iPhone (основная)
+(1, 1, false);  -- Смартфоны (дополнительная)
+
+-- 2. MacBook Air M2 → Ноутбуки (основная)
+INSERT INTO product_categories (product_id, category_id, is_primary) VALUES
+(2, 2, true);   -- Ноутбуки (основная)
+
+-- 3. Samsung Galaxy S24 → Android (основная) + Смартфоны (дополнительная)
+INSERT INTO product_categories (product_id, category_id, is_primary) VALUES
+(3, 10, true),  -- Android (основная)
+(3, 1, false);  -- Смартфоны (дополнительная)
+
+-- 4. Наушники Sony → Наушники (основная) + Аксессуары + Аудиотехника
+INSERT INTO product_categories (product_id, category_id, is_primary) VALUES
+(4, 4, true),   -- Наушники (основная)
+(4, 3, false),  -- Аксессуары (дополнительная)
+(4, 7, false);  -- Аудиотехника (дополнительная)
+```
+
+3. Обновляем primary_category_id в таблице products
+```sql
+-- Обновляем основную категорию для каждого продукта
+UPDATE products p
 SET primary_category_id = pc.category_id
-FROM app_schema.product_categories pc
+FROM product_categories pc
 WHERE p.id = pc.product_id 
   AND pc.is_primary = true;
+
+-- Проверяем
+SELECT id, name, primary_category_id FROM products;
 ```
 
-* Тестовые запросы для проверки связи
+4. Полезные запросы для работы со связями
 ```sql
--- 1. Все продукты с их категориями
-SELECT 
-    p.id,
-    p.name as product_name,
-    p.price,
-    STRING_AGG(c.name, ', ') as categories,
-    MAX(CASE WHEN pc.is_primary THEN c.name END) as primary_category
-FROM app_schema.products p
-LEFT JOIN app_schema.product_categories pc ON p.id = pc.product_id
-LEFT JOIN app_schema.categories c ON pc.category_id = c.id
-GROUP BY p.id, p.name, p.price
-ORDER BY p.id;
+-- 1. Найти продукты без категорий
+SELECT p.*
+FROM products p
+LEFT JOIN product_categories pc ON p.id = pc.product_id
+WHERE pc.product_id IS NULL;
 
--- 2. Все категории с количеством товаров
-SELECT 
-    c.id,
-    c.name as category_name,
-    c.slug,
-    COUNT(DISTINCT pc.product_id) as product_count
-FROM app_schema.categories c
-LEFT JOIN app_schema.product_categories pc ON c.id = pc.category_id
-GROUP BY c.id, c.name, c.slug
-ORDER BY product_count DESC;
+-- 2. Найти категории без продуктов
+SELECT c.*
+FROM categories c
+LEFT JOIN product_categories pc ON c.id = pc.category_id
+WHERE pc.category_id IS NULL;
 
--- 3. Продукты в конкретной категории
+-- 3. Товары, которые относятся к нескольким категориям
 SELECT 
-    p.id,
     p.name,
-    p.price,
-    p.quantity
-FROM app_schema.products p
-JOIN app_schema.product_categories pc ON p.id = pc.product_id
-JOIN app_schema.categories c ON pc.category_id = c.id
-WHERE c.slug = 'smartphones'
-ORDER BY p.price DESC;
+    COUNT(pc.category_id) as categories_count
+FROM products p
+JOIN product_categories pc ON p.id = pc.product_id
+GROUP BY p.id, p.name
+HAVING COUNT(pc.category_id) > 1
+ORDER BY categories_count DESC;
 
--- 4. Иерархия категорий (родитель → дети)
+-- 4. Самая популярная категория (по количеству товаров)
 SELECT 
-    parent.name as parent_category,
-    child.name as child_category,
-    child.slug
-FROM app_schema.categories parent
-LEFT JOIN app_schema.categories child ON child.parent_id = parent.id
-WHERE parent.parent_id IS NULL  -- только корневые категории
-ORDER BY parent.name, child.name;
+    c.name,
+    COUNT(pc.product_id) as products_count
+FROM categories c
+JOIN product_categories pc ON c.id = pc.category_id
+GROUP BY c.id, c.name
+ORDER BY products_count DESC
+LIMIT 1;
 ```
 
-* Создаем индексы для оптимизации
+Связь осуществлена
+
+5. Что может пригодиться?
+* Добавление колонки в существующую таблицу
 ```sql
--- Индексы для таблицы categories
-CREATE INDEX IF NOT EXISTS idx_categories_parent_id ON app_schema.categories(parent_id);
-CREATE INDEX IF NOT EXISTS idx_categories_slug ON app_schema.categories(slug);
-CREATE INDEX IF NOT EXISTS idx_categories_is_active ON app_schema.categories(is_active);
-
--- Индексы для таблицы product_categories
-CREATE INDEX IF NOT EXISTS idx_product_categories_category_id ON app_schema.product_categories(category_id);
-CREATE INDEX IF NOT EXISTS idx_product_categories_product_id ON app_schema.product_categories(product_id);
-CREATE INDEX IF NOT EXISTS idx_product_categories_is_primary ON app_schema.product_categories(is_primary);
-
--- Индекс для products (если нужно искать по категории)
-CREATE INDEX IF NOT EXISTS idx_products_primary_category ON app_schema.products(primary_category_id);
+ALTER TABLE app_schema.products 
+ADD COLUMN brand VARCHAR(50);
 ```
 
-* Триггер для автоматического обновления updated_at
+* Добавить колонку с ограничениями
 ```sql
--- Функция для обновления времени
-CREATE OR REPLACE FUNCTION app_schema.update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
--- Триггер для таблицы categories
-CREATE TRIGGER update_categories_updated_at
-    BEFORE UPDATE ON app_schema.categories
-    FOR EACH ROW
-    EXECUTE FUNCTION app_schema.update_updated_at_column();
-
--- Триггер для таблицы products
-CREATE TRIGGER update_products_updated_at
-    BEFORE UPDATE ON app_schema.products
-    FOR EACH ROW
-    EXECUTE FUNCTION app_schema.update_updated_at_column();
+ALTER TABLE app_schema.products 
+ADD COLUMN rating DECIMAL(2,1) CHECK (rating >= 0 AND rating <= 5);
 ```
 
-* Представления (Views) для удобства
+* Изменение типа данных колонки
 ```sql
--- Представление: продукты с основной категорией
-CREATE OR REPLACE VIEW app_schema.products_with_primary_category AS
-SELECT 
-    p.*,
-    c.name as primary_category_name,
-    c.slug as primary_category_slug
-FROM app_schema.products p
-LEFT JOIN app_schema.categories c ON p.primary_category_id = c.id;
+ALTER TABLE app_schema.products 
+ALTER COLUMN price TYPE DECIMAL(12,2);
 
--- Представление: все связи продуктов и категорий
-CREATE OR REPLACE VIEW app_schema.product_category_details AS
-SELECT 
-    p.id as product_id,
-    p.name as product_name,
-    c.id as category_id,
-    c.name as category_name,
-    c.slug as category_slug,
-    pc.is_primary,
-    pc.created_at as linked_at
-FROM app_schema.products p
-JOIN app_schema.product_categories pc ON p.id = pc.product_id
-JOIN app_schema.categories c ON pc.category_id = c.id;
+-- Изменить VARCHAR(50) на VARCHAR(100)
+ALTER TABLE app_schema.products 
+ALTER COLUMN name TYPE VARCHAR(200);
+```
 
--- Проверяем представления
-SELECT * FROM app_schema.products_with_primary_category LIMIT 5;
-SELECT * FROM app_schema.product_category_details LIMIT 5;
+* Удаление колонки в существующей таблице
+```sql
+ALTER TABLE app_schema.products 
+DROP COLUMN IF EXISTS old_price;
+```
+
+Удаление опасно, если только проектируете, то лучше удалять каскадом!
+
+### Обзор второй части работы с db - ТРИГЕРЫ
+1. Добавление колонки количества продуктов в таблицу `products`
+```sql
+ALTER TABLE products 
+ADD COLUMN stock_quantity INT DEFAULT 0;
 ```
 
 #### Вопросы по db
@@ -678,3 +631,101 @@ psql (18.0)
 ```sql
 ALTER TABLE старое_имя RENAME TO новое_имя;
 ```
+
+5. Как посмотреть всех пользователей?
+```sql
+SELECT
+    rolname
+FROM pg_authid
+WHERE rolcanlogin = true;
+```
+
+Данный запрос сработает только для суперпользователей
+
+6. Как посмотреть базы существующие?
+```sql
+-- Только пользовательские базы (простой вариант)
+SELECT datname 
+FROM pg_database 
+WHERE datistemplate = false  -- не шаблоны
+AND datname NOT IN ('postgres')  -- исключаем системную
+ORDER BY datname;
+```
+
+7. Как посмотреть владельцев баз данных?
+```sql
+SELECT 
+    datname AS "База",
+    pg_get_userbyid(datdba) AS "Владелец",
+    pg_size_pretty(pg_database_size(datname)) AS "Размер"
+FROM pg_database
+WHERE datname IN ('название базы', 'название базы')
+ORDER BY datname;
+```
+
+8. Как удалить базу данных?
+
+Сначала отключаем все подключения:
+
+```sql
+SELECT pg_terminate_backend(pid)
+FROM pg_stat_activity
+WHERE datname = 'название';
+```
+
+Удаляем базу:
+```sql
+DROP DATABASE IF EXISTS название;
+```
+
+9. Проверка текущей базы?
+```sql
+SELECT current_database();
+```
+
+10. Как удалить пользователя?
+
+Проверяем, чем он владеет
+```sql
+SELECT 
+    datname 
+FROM pg_database 
+WHERE pg_get_userbyid(datdba) = 'fs_admin';
+```
+
+11. Как определить нужную схему для работы?
+```sql
+SET schema 'название';
+```
+
+12. 
+
+обавление колонки в существующую таблицу
+```sql
+ALTER TABLE app_schema.products 
+ADD COLUMN brand VARCHAR(50);
+```
+
+* Добавить колонку с ограничениями
+```sql
+ALTER TABLE app_schema.products 
+ADD COLUMN rating DECIMAL(2,1) CHECK (rating >= 0 AND rating <= 5);
+```
+
+* Изменение типа данных колонки
+```sql
+ALTER TABLE app_schema.products 
+ALTER COLUMN price TYPE DECIMAL(12,2);
+
+-- Изменить VARCHAR(50) на VARCHAR(100)
+ALTER TABLE app_schema.products 
+ALTER COLUMN name TYPE VARCHAR(200);
+```
+
+* Удаление колонки в существующей таблице
+```sql
+ALTER TABLE app_schema.products 
+DROP COLUMN IF EXISTS old_price;
+```
+
+Удаление опасно, если только проектируете, то лучше удалять каскадом!
