@@ -5,6 +5,7 @@
 
 - [Первый запуск db](#Первый-запуск-db)
 - [Вопросы по db](#Вопросы-по-db)
+- [Обзор второй части работы с db - ТРИГЕРЫ](#Обзор-второй-части-работы-с-db---ТРИГЕРЫ)
 
 ## Database
 
@@ -598,6 +599,183 @@ ALTER TABLE products
 ADD COLUMN stock_quantity INT DEFAULT 0;
 ```
 
+2. Создаём колонку в таблице `categories`
+```sql
+ALTER TABLE categories 
+ADD COLUMN product_count INT DEFAULT 0;
+```
+
+Будем создавать `триггер` - простыми словами: автоматическая функция, которая отрабатывает, если данные меняются
+
+`Триггер` - специальная хранимая процедура, которая автоматически выполняется при определённых событиях в таблице
+
+* События (хуки/реакции на изменения):
+    - `INSERT` - рекция при добавлении записи
+    - `UPDATE` - реакция на изменение записи
+    - `DELETE` - реакция при удалении записи
+
+* Плюсы:
+    - Автоматизация
+    - Целостность данных
+    - Аудит (логирование)
+    - Бизнес-правила - принудительное выполнение правил на уровне БД
+
+* Минусы:
+    - Скрытая логика - сложнее отлаживать
+    - Производительность
+    - Каскадные эффекты - могут вызывать другие триггеры
+
+Если не использовать треггеры, то данные можно не изменить, что повлечёт к неправильным данным
+
+3. Пишем функцию для изменения количества товаров, если добавились данные в таблице
+```sql
+CREATE OR REPLACE FUNCTION update_category_product_count()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        UPDATE categories
+        SET product_count = product_count + 1
+        WHERE id = NEW.category_id;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+Разберём строки
+- `CREATE OR REPLACE FUNCTION update_category_product_count()` - создаём функцию
+- `RETURNS TRIGGER AS $$` - возвращаем подписку на триггер, это функция \действие\, а не подписка
+- `BEGIN ... END` - условие, что должна делать функция
+- 
+```sql
+IF TG_OP = 'INSERT' THEN
+    UPDATE categories
+    SET product_count = product_count + 1
+    WHERE id = NEW.category_id;
+END IF;
+```
+- если создание, то измени в таблице `categories` колонку `product_count` на `+1`, когда добавляется новый продукт (точнее новый id в таблице product)
+
+Как посмотреть существующие функции?
+```sql
+SELECT 
+    proname AS function_name,
+    prosrc AS function_code
+FROM pg_proc 
+WHERE pronamespace = 'app_schema'::regnamespace
+AND proname LIKE '%category%';
+```
+
+4. Создаём подписку на созданную функцию `update_category_product_count()`
+```sql
+CREATE TRIGGER trg_update_product_count
+AFTER INSERT ON products
+FOR EACH ROW
+    EXECUTE FUNCTION update_category_product_count();
+```
+
+* Разберём по строчкам
+`CREATE TRIGGER trg_update_product_count` - создай триггер (подписку) с названием: `trg_update_product_count`
+`AFTER INSERT ON products` - запусти триггер ПОСЛЕ выполнения операции INSERT, то есть создания строки в таблице `product`
+`FOR EACH ROW` - срабатывает для каждой изменённой строчки
+`EXECUTE FUNCTION update_category_product_count();` - запусти функцию `update_category_product_count()`
+
+* Как посмотреть триггеры?
+```sql
+-- 1. Все триггеры в текущей базе
+SELECT 
+    tgname AS trigger_name,
+    tgrelid::regclass AS table_name,
+    pg_get_triggerdef(oid) AS definition
+FROM pg_trigger
+WHERE tgname NOT LIKE 'pg_%'  -- исключаем системные
+AND tgname NOT LIKE 'RI_%'    -- исключаем внешние ключи
+ORDER BY table_name, trigger_name;
+```
+
+5. Проверка работы триггера
+* Перед тем как проверять, я опечатался в названии колонки `primary_category_id` в таблице `products`, так называть нельзя, поэтому переименуем в нормальную форму
+```sql
+ALTER TABLE products 
+RENAME COLUMN primary_category_id TO category_id;
+```
+
+Посмотрите и запомните таблицу `products` & `categories` особенно колонку `product_count`
+
+* Создаём продукты
+```sql
+insert into products(name, price, quantity, category_id)
+values
+	('Mackbook', 200000, 2, 2),
+	('Honor планшет', 8550, 5, 5)
+```
+
+Проверяем, таблицы изменились и `product_count` тоже поменялся
+
+#### Выполнение практического задания
+Добавить триггер для операции DELETE и UPDATE
+
+Не вижу смысла создавать Update, так как триггер работает на создание, поэтому дополним логику на удаление
+```sql
+CREATE OR REPLACE FUNCTION update_category_product_count()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        UPDATE categories
+        SET product_count = product_count + 1
+        WHERE id = NEW.category_id;
+    END IF;
+	IF TG_OP = 'DELETE' THEN
+		UPDATE categories
+		SET product_count = product_count - 1
+		WHERE id = OLD.category_id;
+	END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+Обратите внимание, что логика функции изменилась, а вот триггер не переназначали, поэтому будет система работать по старой версии функции, нужно перебить триггер или добавить новый триггер
+```sql
+-- 1. Удалить старый триггер
+DROP TRIGGER IF EXISTS trg_update_product_count ON app_schema.products;
+
+-- 2. Создать новый триггер
+CREATE TRIGGER trg_update_product_count
+AFTER INSERT ON app_schema.products
+FOR EACH ROW
+EXECUTE FUNCTION update_category_product_count();
+
+-- Создать дополнительный триггер
+CREATE TRIGGER trg_update_product_count_v2
+AFTER DELETE ON products  -- теперь и на DELETE
+FOR EACH ROW
+    EXECUTE FUNCTION update_category_product_count();
+```
+
+Посмотрите и запомните таблицу `products` & `categories` особенно колонку `product_count`
+
+* Создаём продукты
+```sql
+insert into products(name, price, quantity, category_id)
+values
+	('Poko', 20000, 10, 1)
+```
+
+Проверяем, таблицы изменились и `product_count` тоже поменялся
+
+* Удаляем товар
+```sql
+DELETE FROM products 
+WHERE id = 9;
+```
+
+`product_count` изменяется автоматически
+
+Всё это работа архитектора, довольно тяжёлая и код писать сложно, поэтому изменение и практику мы будем осуществлять в приложении бека на языке `JAVA`
+
+
+
 #### Вопросы по db
 1. Почему не MySQL, а postgresSQL?
     - PostgresSQL "жёстко" тоже самое, что и MySQL, но с дополнениями и пакетами, которые улучшают (увеличенная скорость, более надёжная и безопасная)
@@ -698,9 +876,7 @@ WHERE pg_get_userbyid(datdba) = 'fs_admin';
 SET schema 'название';
 ```
 
-12. 
-
-обавление колонки в существующую таблицу
+12. Как создать новую колонку в существующую таблицу?
 ```sql
 ALTER TABLE app_schema.products 
 ADD COLUMN brand VARCHAR(50);
@@ -712,7 +888,7 @@ ALTER TABLE app_schema.products
 ADD COLUMN rating DECIMAL(2,1) CHECK (rating >= 0 AND rating <= 5);
 ```
 
-* Изменение типа данных колонки
+13. Как измененить тип данных колонки?
 ```sql
 ALTER TABLE app_schema.products 
 ALTER COLUMN price TYPE DECIMAL(12,2);
@@ -722,10 +898,29 @@ ALTER TABLE app_schema.products
 ALTER COLUMN name TYPE VARCHAR(200);
 ```
 
-* Удаление колонки в существующей таблице
+14. Как удалить колонку в существующей таблице?
 ```sql
 ALTER TABLE app_schema.products 
 DROP COLUMN IF EXISTS old_price;
 ```
 
 Удаление опасно, если только проектируете, то лучше удалять каскадом!
+
+15. Зачем `INSERT` и `DELETE`, если есть `UPDATE`?
+
+
+16. Как посмотреть существующие функции?
+```sql
+SELECT 
+    proname AS function_name,
+    prosrc AS function_code
+FROM pg_proc 
+WHERE pronamespace = 'app_schema'::regnamespace
+AND proname LIKE '%category%';
+```
+
+17. Как переименовать колонку?
+```sql
+ALTER TABLE имя_таблицы 
+RENAME COLUMN старое_имя TO новое_имя;
+```
