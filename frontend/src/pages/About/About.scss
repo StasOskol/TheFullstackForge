@@ -1,0 +1,10 @@
+@import "@styles/main";
+
+.about-page {
+    padding: $spacing-xl 0;
+
+    h1 {
+        color: $secondary-color;
+        margin-bottom: $spacing-md;
+    }
+}

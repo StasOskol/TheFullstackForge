@@ -1,0 +1,12 @@
+@import "@styles/main";
+
+.footer {
+    background-color: $text-primary;
+    color: white;
+    padding: $spacing-lg 0;
+    margin-top: auto;
+
+    .footer-content {
+        text-align: center;
+    }
+}

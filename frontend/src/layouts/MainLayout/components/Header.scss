@@ -1,0 +1,42 @@
+@import "@styles/main";
+
+.header {
+    background-color: $primary-color;
+    color: white;
+
+    .header-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        height: 70px;
+    }
+
+    .logo {
+        font-size: $font-size-xl;
+        font-weight: bold;
+        color: white;
+
+        &:hover {
+            opacity: 0.9;
+        }
+    }
+
+    .nav {
+        display: flex;
+        gap: $spacing-md;
+
+        .nav-link {
+            color: white;
+            padding: $spacing-sm $spacing-md;
+            transition: background-color 0.3s;
+
+            &:hover {
+                background-color: rgba(255, 255, 255, 0.1);
+            }
+
+            &.active {
+                background-color: rgba(255, 255, 255, 0.2);
+            }
+        }
+    }
+}

@@ -1,0 +1,10 @@
+@import "@styles/main";
+
+.home-page {
+    padding: $spacing-xl 0;
+
+    h1 {
+        color: $primary-color;
+        margin-bottom: $spacing-md;
+    }
+}
