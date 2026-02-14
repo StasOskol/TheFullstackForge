@@ -1,0 +1,40 @@
+@import "@styles/main";
+
+.form-auth {
+    width: 400px;
+    display: flex;
+    flex-direction: column;
+
+    &-login {
+        margin-left: 20px;
+
+        &-text {
+            display: block;
+            font-size: 18px;
+        }
+
+        &-inp {
+            font-size: 18px;
+        }
+
+        &-error {
+            color: red;
+            margin-left: 20px;
+        }
+
+        &-sing-in{
+            width: 206px;
+            margin-left: 20px;
+            margin-top: 10px;
+            background: #ff6666;
+            font-size: 18px;
+            padding: 10px 5px;
+            border-radius: 10px;
+            transition: background 0.8s;
+
+            &:hover {
+                background: #ff0000;
+            }
+        }
+    }
+}

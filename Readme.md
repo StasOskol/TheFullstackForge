@@ -926,6 +926,223 @@ npm i
 
 Используется для зауска `NodeJS` скачивается с официального сайта
 
+Для запуска приложения `frontend` 
+
+!ВАЖНО! ПЕРЕД ЗАПУСКОМ приложения измените файл `.env` на свой адрес сервера бека
+
+Файл `.env`:
+```
+VITE_API_BASE_URL=http://localhost:8080/
+```
+
+Далее:
+
+```bash
+npm run dev
+```
+
+Создадим на фронте форму для login захода с последующим просмотром постов данного пользователя, созданием, удалением, измением поста
+
+Для этого создадим файл `src/pages/Login/Login.tsx`
+```tsx
+import './Login.scss';
+
+const Login = () => {
+    return <div className='form-auth'>
+        <figure className='form-auth-login'>
+            <span className='form-auth-login-text'>Логин: </span>
+            <input
+                className='form-auth-login-inp'
+                type="text"
+                onChange={(e) => setLogin(e.target.value)}
+            />
+        </figure>
+        <figure className='form-auth-login'>
+            <span className='form-auth-login-text'>Пароль:</span>
+            <input
+                className='form-auth-login-inp'
+                type="password"
+                onChange={(e) => setPassword(e.target.value)}
+            />
+        </figure>
+        {error && (
+            <div className='form-auth-login-error'>
+                {error}
+            </div>
+        )}
+        <button
+            className='form-auth-login-sing-in'
+            onClick={send}
+        >
+            Войти
+        </button>
+    </div>
+};
+
+export default Login;
+```
+
+создадим файл `src/pages/Login/Login.scss`
+```scss
+@import "@styles/main";
+
+.form-auth {
+    width: 400px;
+    display: flex;
+    flex-direction: column;
+
+    &-login {
+        margin-left: 20px;
+
+        &-text {
+            display: block;
+            font-size: 18px;
+        }
+
+        &-inp {
+            font-size: 18px;
+        }
+
+        &-error {
+            color: red;
+            margin-left: 20px;
+        }
+
+        &-sing-in{
+            width: 206px;
+            margin-left: 20px;
+            margin-top: 10px;
+            background: #ff6666;
+            font-size: 18px;
+            padding: 10px 5px;
+            border-radius: 10px;
+            transition: background 0.8s;
+
+            &:hover {
+                background: #ff0000;
+            }
+        }
+    }
+}
+
+```
+
+Форма готова, теперь будем создавать на фронте рекцию на логирование, для этого создадим в папке controller нашу api для login
+
+- Создаём types для Dto данных, которые будут отправляться на сервер
+`src/types/auth/login.type.ts`
+```ts
+export type loginDto = {
+    login: string,
+    password: string
+}
+```
+
+- Создай файл `src/services/api/controllers/auth-controller.ts`
+```ts
+import { api } from "..";
+import { loginDto, resLoginDto } from "@/types/auth/login.type";
+
+export const authController = {
+    // login
+    login: (data: loginDto) => {
+        return api.post<resLoginDto>('/api/v1/auth/login', data);
+    }
+}
+```
+
+- Настраиваем роут для login
+Заходим в `App.tsx` и добавляем
+```tsx
+...
+import Login from './pages/Login/Login';
+...
+<Route path='/login' element={<Login />} />
+...
+```
+
+- Дописываем логику отправки данных для входа в сервис
+```tsx
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+import { codeResponseError } from '@/utils/api-response/code.responese';
+
+import { authController } from '@/services/api/controllers/auth-controller';
+
+import { ApiError } from '@/types/error-api/error-api.type';
+
+import './Login.scss';
+
+const Login = () => {
+    const navigete = useNavigate();
+    const [login, setLogin] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+
+    const send = async () => {
+        setError('');
+
+        try {
+            const response = await authController.login({
+                login,
+                password
+            });
+
+            if (response.data.token) {
+                localStorage.setItem('token', response.data.token);
+                localStorage.setItem('userId', response.data.userId);
+                localStorage.setItem('username', response.data.username);
+
+                console.log('Успешно!', response.data);
+                navigete('/')
+            }
+        } catch (err) {
+            const error = err as ApiError;  
+            console.log('Ошибка:', error);
+
+            if (error.response?.status) {
+                setError(codeResponseError(error.response?.status))
+            }
+        }
+    };
+
+    return <div className='form-auth'>
+        <figure className='form-auth-login'>
+            <span className='form-auth-login-text'>Логин: </span>
+            <input
+                className='form-auth-login-inp'
+                type="text"
+                onChange={(e) => setLogin(e.target.value)}
+            />
+        </figure>
+        <figure className='form-auth-login'>
+            <span className='form-auth-login-text'>Пароль:</span>
+            <input
+                className='form-auth-login-inp'
+                type="password"
+                onChange={(e) => setPassword(e.target.value)}
+            />
+        </figure>
+        {error && (
+            <div className='form-auth-login-error'>
+                {error}
+            </div>
+        )}
+        <button
+            className='form-auth-login-sing-in'
+            onClick={send}
+        >
+            Войти
+        </button>
+    </div>
+};
+
+export default Login;
+```
+
+- Отправляем запрос для получения и записи токена
+
 # Вопросы по db
 1. Почему не MySQL, а postgresSQL?
     - PostgresSQL "жёстко" тоже самое, что и MySQL, но с дополнениями и пакетами, которые улучшают (увеличенная скорость, более надёжная и безопасная)
