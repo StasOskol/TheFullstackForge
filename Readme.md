@@ -1,11 +1,12 @@
 # The Fullstack Forge
 Фулстек-Кузница
 
-> 19.02.2026 (описание работы с db + развёртывание backend + frontend)
+> 21.02.2026 (описание работы с db + развёртывание backend + frontend)
 
 - [Первый запуск db](#Первый-запуск-db)
 - [Обзор второй части работы с db - ТРИГЕРЫ](#Обзор-второй-части-работы-с-db---ТРИГЕРЫ)
 - [Разворот backend-приложения под db](#Разворот-backend-приложения-под-db)
+- [Настройка frontend-приложения под просмотр post и создание](#Настройка-frontend-приложения-под-просмотр-post-и-создание)
 - [Вопросы по db](#Вопросы-по-db)
 - [Вопросы по fullstack](#Вопросы-по-fullstack)
 
@@ -1177,6 +1178,384 @@ export default Login;
 На вкладке браузера `Application` в разделе `Storage` -> `local storage` -> `http://localhost:3000` справа вы будете наблюдать token ключ, он будет применяться, чтобы другие api срабатывали
 
 У Вас получилось связать `frontend` c `backend` и `db`
+
+# Настройка frontend-приложения под просмотр post и создание
+Заходим в браузере по адресу:
+```
+http://localhost:8080/swagger-ui/index.html
+```
+!Внимание! Ссылка будет работать только при включённом сервере backend
+
+Ищем раздел: `post-controller`
+
+Изучаем содержимое, с помощью api мы будем связывать сейчас frontend с backend
+
+## Настройка просмотра всех постов
+Заходим в папку: `frontend -> src -> services -> api -> controllers` и создаём файл `post-controller.ts`:
+```ts
+import { api } from "..";
+import { PostDto } from "@/types/post/post.type";
+import { Pageable } from "@/types/common/pageable.type";
+import { PageableObject } from "@/types/page/page.types";
+
+export const postsController = {
+    getPosts: (pageable: Pageable) => {
+        return api.get(`/posts/?page=${pageable.page}&size=${pageable.size}&sort=${pageable.sort?.join(",")}`);
+    },
+
+    createPost: (data: PostDto) => {
+        return api.post<PageableObject>(`/posts/`, data);
+    }
+}
+```
+
+Возможны ошибки, чуть позже их исправим
+
+В данном файле мы настроили адрес связи с сервером backend, и типизацией, возврата (какие данные возвращаются и что передаётся)
+
+Ругаться может из-за того, что типы не настроены.
+
+- Настройка `types`:
+* Переходим `frontend -> src -> types -> common -> pageable.type.ts` и дополняем: (возможно такое уже есть)
+```
+export type ApiResponse < T > = {
+    data: T;
+    status: number;
+    message?: string;
+}
+
+...
+```
+
+* Переходим `frontend -> src -> types` создаём папку `page` с файлом `page.types.ts`
+
+Обратите внимание, что если это контррллер, то в названии применяется слово `controller`, если тип, то `types` и т.д.
+
+Возможно такой файл уже будет существовать
+
+```ts
+export type SortObject = {
+    sorted: boolean,
+    empty: boolean,
+    unsorted: boolean
+}
+
+export type PageableObject<T = Record<string, unknown>> = {
+    totalElements: number;
+    totalPages: number;
+    pageable: PageableObject<T>;
+    size: number;
+    content: T[];
+    number: number;
+    sort: SortObject;
+    numberOfElements: number;
+    first: boolean;
+    last: boolean;
+    empty: boolean;
+}
+```
+
+Вот следующий файл не общий, а индивидуальный поэтому его точно в шаблоне react не будет
+* Переходим `frontend -> src -> types` создаём папку `post` и создаём файл `post.type.ts`:
+```ts
+export type PostDto = {
+    content: string
+}
+```
+
+Здесь указывается тип и поля передаваемые. Эти поля берутся из сваггера
+
+* Переходим в папку `frontend -> src -> pages -> Home.ts`: 
+!Внимание! Чтобы api другие заработали, нужно перейти по роуту в login и залогиниться, запросы в браузере без CORS
+```ts
+import { useEffect, useState } from 'react';
+
+import './Home.scss';
+
+import { postsController } from '@/services/api/controllers/post-controller';
+
+import { codeResponseError } from '@/utils/api-response/code.responese';
+
+import { PostDto } from '@/types/post/post.type';
+import { PageableObject } from '@/types/page/page.types';
+import { ApiError } from '@/types/error-api/error-api.type';
+import { ApiResponse, getDefaultPageable, Pageable } from '@/types/common/pageable.type';
+
+const Home = () => {
+    const [error, setError] = useState('');
+    const [posts, setPosts] = useState<PostDto[]>();
+    
+    const [pageable] = useState<Pageable>(getDefaultPageable());
+
+    const fetchPosts = async () => {
+        setError('');
+
+        try {
+            // Явно указываем тип ответа
+            const response = await postsController.getPosts(pageable) as ApiResponse<PageableObject>;
+
+            // response.data теперь типизирован как PageableObject
+            setPosts(response.data.content as PostDto[]);
+            console.log('Посты получены:', response);
+        } catch (err) {
+            const error = err as ApiError;
+            console.log('Ошибка:', error);
+
+            if (error.response?.status) {
+                setError(codeResponseError(error.response.status));
+            } else {
+                setError('Произошла неизвестная ошибка');
+            }
+        }
+    };
+
+    useEffect(() => {
+        fetchPosts();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    return (
+        <div className="home-page">
+            {error && <div style={{ color: 'red' }}>{error}</div>}
+
+            <ul>
+                {posts && posts.length !== 0 ? (
+                    posts.map((item, key) => (
+                        <li key={key}>{item.content}</li>
+                    ))
+                ) : (
+                    'Нет постов'
+                )}
+            </ul>
+        </div>
+    );
+};
+
+export default Home;
+```
+
+Разберём по строчкам:
+1. `import { useEffect, useState } from 'react';` - подключение хуков жизненного цикла
+2. `import './Home.scss';` - подключение стилизации
+3. `import { postsController } from '@/services/api/controllers/post-controller';` - объект контроллеров (связь с сервером) где один из контроллеров показ всех контроллеров
+4. `import { codeResponseError } from '@/utils/api-response/code.responese';` - подключение вспомогательной функции для обработки статусов страницы, в случае плохих ответов с бек-сервера
+5. Подключение разных типов, что должно храниться в переменной:
+```ts
+import { PostDto } from '@/types/post/post.type';
+import { PageableObject } from '@/types/page/page.types';
+import { ApiError } from '@/types/error-api/error-api.type';
+import { ApiResponse, getDefaultPageable, Pageable } from '@/types/common/pageable.type';
+```
+6. Название компонента (класса), который виден всем
+```ts
+const Home = () => {
+    return
+};
+
+export default Home;
+```
+
+7. Реактивные переменные с указанием, что в них может храниться, какой объект
+```ts
+const [error, setError] = useState('');
+const [posts, setPosts] = useState<PostDto[]>();
+```
+
+8. `const [pageable] = useState<Pageable>(getDefaultPageable());` - реактивная переменная, которая отвечает за пагинацию и сортировку приходящих get-запросов
+
+9. Функция запроса на бек с помощью внутреннего контроллера: (по каждой строке внутри комменты)
+```ts
+const fetchPosts = async () => { // asunc - ассинхронный запрос
+    setError(''); // изменение реактивной переменной на пустую строку
+
+    try { // тело асинхронного запроса (успех)
+        const response = await postsController.getPosts(pageable) as ApiResponse<PageableObject>; // переменная response, в которой лежат приходящие с бека строки, а также статусы и сообщения
+            setPosts(response.data.content as PostDto[]); // изменение реактивной переменной posts на содержимое, которое приходит с бека, как выглит определяем через swagger
+            console.log('Посты получены:', response); // Логирование
+        } catch (err) { // Ответ при плохом запросе или ошибке
+            const error = err as ApiError; // в переменной error ответ сервера в плозом ответе
+            console.log('Ошибка:', error); // Логирование
+
+            if (error.response?.status) { // Если в переменной есть код ошибки, то обработать через вспомогательную функцию определения ошибки
+                setError(codeResponseError(error.response.status)); // изменение реактивной переменной error на код ошибки
+            } else {
+                setError('Произошла неизвестная ошибка'); // изменение реактивной переменной error на текст 'Произошла неизвестная ошибка'
+            }
+        }
+    };
+```
+
+10. Вёрстка (подробнее ниже в комментариях):
+```ts
+return (
+    <div className="home-page"> // Родительский блок
+        {error && <div style={{ color: 'red' }}>{error}</div>} // Вывод что содержится в переменной error
+
+        <ul> // Список из постов
+            {posts && posts.length !== 0 ? ( // Строчное условие, что если посты существуют и длина массива приходящий с бека не равно 0, то выполняется условие ниже, а через знак ":" противоположное условие
+                posts.map((item, key) => ( // Цикл map, который проходит по массиву posts и в item по очереди кладёт каждый елемент массива по порядку
+                    <li key={key}>{item.content}</li> // вёрстка в ней используется переменная item, в которой есть поле content и он выводится на страницу
+                ))
+            ) : ( // противоположное условие, если posts.lenght === 0
+                <li>'Нет постов'</li> // выводит текст `Нет постов`
+            )}
+        </ul>
+    </div>
+    );
+```
+
+Для отладки можно установить расширение для браузера, помощь в react: React devtools
+
+## Настройка добавления posts
+Заходим в `frontend -> src -> pages -> Home.ts`
+```ts
+import { useEffect, useState } from 'react';
+
+import './Home.scss';
+
+import { postsController } from '@/services/api/controllers/post-controller';
+
+import { codeResponseError } from '@/utils/api-response/code.responese';
+
+import { PostDto } from '@/types/post/post.type';
+import { PageableObject } from '@/types/page/page.types';
+import { ApiError } from '@/types/error-api/error-api.type';
+import { ApiResponse, getDefaultPageable, Pageable } from '@/types/common/pageable.type';
+
+const Home = () => {
+    const [error, setError] = useState('');
+    const [posts, setPosts] = useState<PostDto[]>();
+    const [contentPost, setContentPost] = useState('');
+    const [pageable] = useState<Pageable>(getDefaultPageable());
+
+    const fetchPosts = async () => {
+        setError('');
+
+        try {
+            // Явно указываем тип ответа
+            const response = await postsController.getPosts(pageable) as ApiResponse<PageableObject>;
+
+            // response.data теперь типизирован как PageableObject
+            setPosts(response.data.content as PostDto[]);
+            console.log('Посты получены:', response);
+        } catch (err) {
+            const error = err as ApiError;
+            console.log('Ошибка:', error);
+
+            if (error.response?.status) {
+                setError(codeResponseError(error.response.status));
+            } else {
+                setError('Произошла неизвестная ошибка');
+            }
+        }
+    };
+
+    useEffect(() => {
+        fetchPosts();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const createNewPost = async () => {
+        const data = {
+            content: contentPost
+        };
+
+        try {
+            const response = await postsController.createPost(data) as ApiResponse<PageableObject>;
+
+            if (response.status === 200) {
+                await fetchPosts();
+                setContentPost('');
+            }
+        } catch (err) {
+            const error = err as ApiError;
+            console.log('Ошибка:', error);
+
+            if (error.response?.status) {
+                setError(codeResponseError(error.response.status));
+            } else {
+                setError('Произошла неизвестная ошибка');
+            }
+        }
+    };
+
+    return (
+        <div className="home-page">
+            {error && <div style={{ color: 'red' }}>{error}</div>}
+
+            <ul>
+                {posts && posts.length !== 0 ? (
+                    posts.map((item, key) => (
+                        <li key={key}>{item.content}</li>
+                    ))
+                ) : (
+                        <li>Нет постов</li>
+                )}
+            </ul>
+
+            <input
+                value={contentPost}
+                onChange={(e) => setContentPost(e.target.value)}
+                placeholder="Введите текст поста"
+            />
+            <button onClick={createNewPost}>
+                Создать
+            </button>
+        </div>
+    );
+};
+
+export default Home;
+```
+
+Что изменилось?
+
+1. Добавились строки вёрстки:
+```ts
+<input
+    value={contentPost}
+    onChange={(e) => setContentPost(e.target.value)}
+    placeholder="Введите текст поста"
+/>
+<button onClick={createNewPost}>
+    Создать
+</button>
+```
+
+Добавилось поле ввода и кнопка
+
+2. Ректиная переменная: `const [contentPost, setContentPost] = useState('');` - хранит всё что находится в поле ввода, а изменяется она при помощи верхних строк, события `onChange` в input
+
+3. Функция создания поста: (подробнее внутри)
+```ts
+const createNewPost = async () => { // асинхронная функция - создание поста
+    const data = { // локальная переменная, обёртка под json с полем content и это поле содержит в себе, что хранит переменная contentPost
+        content: contentPost
+    };
+
+    try { // тело запроса на бек
+        const response = await postsController.createPost(data) as ApiResponse<PageableObject>; // переменная response хранит ответ после успешного ответа сервера
+
+        if (response.status === 200) {// если ответ со статусом 200
+            await fetchPosts(); // перезапуск запроса для отображения обновлённого списка постов
+            setContentPost(''); // сброс поля input
+        }
+    } catch (err) {// в случае ошибки ответа бек-сервера
+        const error = err as ApiError;
+        console.log('Ошибка:', error);
+
+        if (error.response?.status) {
+            setError(codeResponseError(error.response.status));
+        } else {
+            setError('Произошла неизвестная ошибка');
+        }
+    }
+};
+```
+
+Готово, задача выполнена, post новый добавлен в базу!
+
+### Изменение определённого поста
 
 # Вопросы по db
 1. Почему не MySQL, а postgresSQL?
