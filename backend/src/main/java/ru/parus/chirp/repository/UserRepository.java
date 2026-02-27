@@ -1,6 +1,8 @@
 package ru.parus.chirp.repository;
 
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import ru.parus.chirp.model.UserEntity;
@@ -17,4 +19,7 @@ import ru.parus.chirp.model.UserEntity;
 public interface UserRepository extends JpaRepository<UserEntity, Long> {
     Optional<UserEntity> findByUsername(String username);
     boolean existsByUsername(String username);
+    // Игнорим написание имени
+    Page<UserEntity> findByIdContainsIgnoreCase(Pageable pageable, String username);
+
 }

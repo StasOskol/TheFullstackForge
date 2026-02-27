@@ -14,6 +14,7 @@ import ru.parus.chirp.model.PostEntity;
 import ru.parus.chirp.model.UserEntity;
 import ru.parus.chirp.model.dto.post.PostDto;
 import ru.parus.chirp.repository.PostRepository;
+import ru.parus.chirp.service.NotificationService;
 import ru.parus.chirp.service.PostService;
 import ru.parus.chirp.service.UserService;
 
@@ -34,6 +35,7 @@ public class PostServiceImpl implements PostService {
     private final PostRepository postRepository;
     private final PostMapper postMapper;
     private final UserService userService;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -41,7 +43,9 @@ public class PostServiceImpl implements PostService {
         UserEntity user = userService.getCurrentUserEntity();
         PostEntity postEntity = postMapper.toEntity(dto);
         postEntity.setOwner(user);
-        return postMapper.toDto(postRepository.save(postEntity));
+        var result = postMapper.toDto(postRepository.save(postEntity));
+        notificationService.notifyAsyncNewPost(user.getId()); // Не ждем завершения!
+        return result;
     }
 
     @Override
@@ -64,13 +68,13 @@ public class PostServiceImpl implements PostService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public PostDto update(Long id, PostDto dto) {
         UserEntity user = userService.getCurrentUserEntity();
         PostEntity post = postRepository.findById(id).orElseThrow(NotExistException::new);
         if (post.getOwner().getId().equals(user.getId())) {
             postMapper.patchUpdate(dto, post);
-//            postRepository.save(post);
+            postRepository.save(post);
             return postMapper.toDto(post);
         }
         throw new PermissionDeniedException();
