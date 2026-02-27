@@ -5,7 +5,7 @@ import { PageableObject } from "@/types/page/page.types";
 
 export const postsController = {
     getPosts: (pageable: Pageable) => {
-        return api.get(`/posts/?page=${pageable.page}&size=${pageable.size}&sort=${pageable.sort?.join(",")}`);
+        return api.get<PageableObject>(`/posts/?page=${pageable.page}&size=${pageable.size}&sort=${pageable.sort?.join(",")}`);
     },
 
     createPost: (data: PostDto) => {
