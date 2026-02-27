@@ -1,7 +1,9 @@
 # The Fullstack Forge
 Фулстек-Кузница
 
-> 21.02.2026 (описание работы с db + развёртывание backend + frontend)
+!!ВНИМАНИЕ!! Критические изменения, обновите backend-файлы и frontend-файлы
+
+> 28.02.2026 (описание работы с db + развёртывание backend + frontend)
 
 - [Первый запуск db](#Первый-запуск-db)
 - [Обзор второй части работы с db - ТРИГЕРЫ](#Обзор-второй-части-работы-с-db---ТРИГЕРЫ)
@@ -1273,40 +1275,21 @@ import { useEffect, useState } from 'react';
 import './Home.scss';
 
 import { postsController } from '@/services/api/controllers/post-controller';
-
-import { codeResponseError } from '@/utils/api-response/code.responese';
-
+import { getDefaultPageable, Pageable } from '@/types/common/pageable.type';
 import { PostDto } from '@/types/post/post.type';
-import { PageableObject } from '@/types/page/page.types';
-import { ApiError } from '@/types/error-api/error-api.type';
-import { ApiResponse, getDefaultPageable, Pageable } from '@/types/common/pageable.type';
 
 const Home = () => {
+    const [posts, setPosts] = useState<PostDto[]>([]);
     const [error, setError] = useState('');
-    const [posts, setPosts] = useState<PostDto[]>();
-    
+
     const [pageable] = useState<Pageable>(getDefaultPageable());
 
-    const fetchPosts = async () => {
-        setError('');
-
-        try {
-            // Явно указываем тип ответа
-            const response = await postsController.getPosts(pageable) as ApiResponse<PageableObject>;
-
-            // response.data теперь типизирован как PageableObject
-            setPosts(response.data.content as PostDto[]);
-            console.log('Посты получены:', response);
-        } catch (err) {
-            const error = err as ApiError;
-            console.log('Ошибка:', error);
-
-            if (error.response?.status) {
-                setError(codeResponseError(error.response.status));
-            } else {
-                setError('Произошла неизвестная ошибка');
-            }
-        }
+    const fetchPosts = () => {
+        postsController.getPosts(pageable)
+            .then(response => {
+                setPosts(response.data.content as PostDto[]);
+            })
+            .catch(() => setError('Ошибка загрузки'));
     };
 
     useEffect(() => {
@@ -1319,13 +1302,14 @@ const Home = () => {
             {error && <div style={{ color: 'red' }}>{error}</div>}
 
             <ul>
-                {posts && posts.length !== 0 ? (
-                    posts.map((item, key) => (
-                        <li key={key}>{item.content}</li>
-                    ))
-                ) : (
-                    'Нет постов'
-                )}
+                {
+                    posts && posts.length !== 0 ?
+                        posts.map((item, key) => (
+                            <li key={key}>{item.content}</li>
+                        ))
+                :
+                    <li>Нет постов</li>
+                }
             </ul>
         </div>
     );
@@ -1338,15 +1322,12 @@ export default Home;
 1. `import { useEffect, useState } from 'react';` - подключение хуков жизненного цикла
 2. `import './Home.scss';` - подключение стилизации
 3. `import { postsController } from '@/services/api/controllers/post-controller';` - объект контроллеров (связь с сервером) где один из контроллеров показ всех контроллеров
-4. `import { codeResponseError } from '@/utils/api-response/code.responese';` - подключение вспомогательной функции для обработки статусов страницы, в случае плохих ответов с бек-сервера
-5. Подключение разных типов, что должно храниться в переменной:
+4. Подключение разных типов, что должно храниться в переменной:
 ```ts
 import { PostDto } from '@/types/post/post.type';
-import { PageableObject } from '@/types/page/page.types';
-import { ApiError } from '@/types/error-api/error-api.type';
-import { ApiResponse, getDefaultPageable, Pageable } from '@/types/common/pageable.type';
+import { getDefaultPageable, Pageable } from '@/types/page/page.types';
 ```
-6. Название компонента (класса), который виден всем
+5. Название компонента (класса), который виден всем
 ```ts
 const Home = () => {
     return
@@ -1355,34 +1336,31 @@ const Home = () => {
 export default Home;
 ```
 
-7. Реактивные переменные с указанием, что в них может храниться, какой объект
+6. Реактивные переменные с указанием, что в них может храниться, какой объект
 ```ts
-const [error, setError] = useState('');
 const [posts, setPosts] = useState<PostDto[]>();
+const [error, setError] = useState('');
 ```
 
-8. `const [pageable] = useState<Pageable>(getDefaultPageable());` - реактивная переменная, которая отвечает за пагинацию и сортировку приходящих get-запросов
+7. `const [pageable] = useState<Pageable>(getDefaultPageable());` - реактивная переменная, которая отвечает за пагинацию и сортировку приходящих get-запросов
 
-9. Функция запроса на бек с помощью внутреннего контроллера: (по каждой строке внутри комменты)
+8. Функция запроса на бек с помощью внутреннего контроллера: (по каждой строке внутри комменты)
 ```ts
-const fetchPosts = async () => { // asunc - ассинхронный запрос
-    setError(''); // изменение реактивной переменной на пустую строку
-
-    try { // тело асинхронного запроса (успех)
-        const response = await postsController.getPosts(pageable) as ApiResponse<PageableObject>; // переменная response, в которой лежат приходящие с бека строки, а также статусы и сообщения
-            setPosts(response.data.content as PostDto[]); // изменение реактивной переменной posts на содержимое, которое приходит с бека, как выглит определяем через swagger
-            console.log('Посты получены:', response); // Логирование
-        } catch (err) { // Ответ при плохом запросе или ошибке
-            const error = err as ApiError; // в переменной error ответ сервера в плозом ответе
-            console.log('Ошибка:', error); // Логирование
-
-            if (error.response?.status) { // Если в переменной есть код ошибки, то обработать через вспомогательную функцию определения ошибки
-                setError(codeResponseError(error.response.status)); // изменение реактивной переменной error на код ошибки
-            } else {
-                setError('Произошла неизвестная ошибка'); // изменение реактивной переменной error на текст 'Произошла неизвестная ошибка'
-            }
-        }
+const fetchPosts = () => {
+    postsController.getPosts(pageable)
+        .then(response => {
+            setPosts(response.data.content as PostDto[]);
+        })
+        .catch(() => setError('Ошибка загрузки'));
     };
+```
+
+9. Хук жизненного цикла, который срабатывает при при изменениях в [], или при первой прогрузке страницы
+```ts
+useEffect(() => {
+        fetchPosts(); // запускает функцию выше
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // в [] указываются переменные, от которых происходи перередер страницы, в данном случае никогда
 ```
 
 10. Вёрстка (подробнее ниже в комментариях):
@@ -1410,73 +1388,41 @@ return (
 Заходим в `frontend -> src -> pages -> Home.ts`
 ```ts
 import { useEffect, useState } from 'react';
-
 import './Home.scss';
 
 import { postsController } from '@/services/api/controllers/post-controller';
-
-import { codeResponseError } from '@/utils/api-response/code.responese';
-
+import { getDefaultPageable, Pageable } from '@/types/common/pageable.type';
 import { PostDto } from '@/types/post/post.type';
-import { PageableObject } from '@/types/page/page.types';
-import { ApiError } from '@/types/error-api/error-api.type';
-import { ApiResponse, getDefaultPageable, Pageable } from '@/types/common/pageable.type';
 
 const Home = () => {
-    const [error, setError] = useState('');
-    const [posts, setPosts] = useState<PostDto[]>();
+    const [posts, setPosts] = useState<PostDto[]>([]);
     const [contentPost, setContentPost] = useState('');
+    const [error, setError] = useState('');
+
     const [pageable] = useState<Pageable>(getDefaultPageable());
 
-    const fetchPosts = async () => {
-        setError('');
-
-        try {
-            // Явно указываем тип ответа
-            const response = await postsController.getPosts(pageable) as ApiResponse<PageableObject>;
-
-            // response.data теперь типизирован как PageableObject
-            setPosts(response.data.content as PostDto[]);
-            console.log('Посты получены:', response);
-        } catch (err) {
-            const error = err as ApiError;
-            console.log('Ошибка:', error);
-
-            if (error.response?.status) {
-                setError(codeResponseError(error.response.status));
-            } else {
-                setError('Произошла неизвестная ошибка');
-            }
-        }
+    const fetchPosts = () => {
+        postsController.getPosts(pageable)
+            .then(response => {
+                setPosts(response.data.content as PostDto[]);
+            })
+            .catch(() => setError('Ошибка загрузки'));
     };
 
     useEffect(() => {
         fetchPosts();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const createNewPost = async () => {
-        const data = {
-            content: contentPost
-        };
+    const createNewPost = () => {
+        if (!contentPost.trim()) return;
 
-        try {
-            const response = await postsController.createPost(data) as ApiResponse<PageableObject>;
-
-            if (response.status === 200) {
-                await fetchPosts();
+        postsController.createPost({ content: contentPost })
+            .then(() => {
+                fetchPosts();
                 setContentPost('');
-            }
-        } catch (err) {
-            const error = err as ApiError;
-            console.log('Ошибка:', error);
-
-            if (error.response?.status) {
-                setError(codeResponseError(error.response.status));
-            } else {
-                setError('Произошла неизвестная ошибка');
-            }
-        }
+                setError('');
+            })
+            .catch(() => setError('Ошибка создания'));
     };
 
     return (
@@ -1484,23 +1430,22 @@ const Home = () => {
             {error && <div style={{ color: 'red' }}>{error}</div>}
 
             <ul>
-                {posts && posts.length !== 0 ? (
-                    posts.map((item, key) => (
-                        <li key={key}>{item.content}</li>
-                    ))
-                ) : (
-                        <li>Нет постов</li>
-                )}
+                {
+                    posts && posts.length !== 0 ?
+                        posts.map((item, key) => (
+                            <li key={key}>{item.content}</li>
+                        ))
+                :
+                    <li>Нет постов</li>
+                }
             </ul>
 
             <input
                 value={contentPost}
                 onChange={(e) => setContentPost(e.target.value)}
-                placeholder="Введите текст поста"
+                placeholder="Новый пост"
             />
-            <button onClick={createNewPost}>
-                Создать
-            </button>
+            <button onClick={createNewPost}>Создать</button>
         </div>
     );
 };
@@ -1528,28 +1473,16 @@ export default Home;
 
 3. Функция создания поста: (подробнее внутри)
 ```ts
-const createNewPost = async () => { // асинхронная функция - создание поста
-    const data = { // локальная переменная, обёртка под json с полем content и это поле содержит в себе, что хранит переменная contentPost
-        content: contentPost
-    };
+const createNewPost = () => { // функция новой записи (поста)
+    if (!contentPost.trim()) return; // если переменная contentPost пустая, то происходит return и фунция дальше не идёт -> защита от дурака
 
-    try { // тело запроса на бек
-        const response = await postsController.createPost(data) as ApiResponse<PageableObject>; // переменная response хранит ответ после успешного ответа сервера
-
-        if (response.status === 200) {// если ответ со статусом 200
-            await fetchPosts(); // перезапуск запроса для отображения обновлённого списка постов
-            setContentPost(''); // сброс поля input
-        }
-    } catch (err) {// в случае ошибки ответа бек-сервера
-        const error = err as ApiError;
-        console.log('Ошибка:', error);
-
-        if (error.response?.status) {
-            setError(codeResponseError(error.response.status));
-        } else {
-            setError('Произошла неизвестная ошибка');
-        }
-    }
+    postsController.createPost({ content: contentPost })// Вызов асинхронного запроса, с внутренностью, что передаётся объект с полем content
+        .then(() => { // при удачном ответе backend-сервера
+            fetchPosts(); // запускается функция, которая заново выводит все доступные twitы у данного пользователя
+            setContentPost(''); // обнуляет переменную contentPost
+            setError(''); // // обнуляет переменную ошибки, если она возникла раньше
+        })
+        .catch(() => setError('Ошибка создания')); // в случае плохого ответа backend-сервера
 };
 ```
 

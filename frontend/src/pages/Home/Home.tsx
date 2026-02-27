@@ -41,9 +41,14 @@ const Home = () => {
             {error && <div style={{ color: 'red' }}>{error}</div>}
 
             <ul>
-                {posts.map((post, i) => (
-                    <li key={i}>{post.content}</li>
-                ))}
+                {
+                    posts && posts.length !== 0 ?
+                        posts.map((item, key) => (
+                            <li key={key}>{item.content}</li>
+                        ))
+                :
+                    <li>Нет постов</li>
+                }
             </ul>
 
             <input
