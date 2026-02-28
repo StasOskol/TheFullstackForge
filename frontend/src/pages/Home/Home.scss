@@ -8,3 +8,12 @@
         margin-bottom: $spacing-md;
     }
 }
+
+.btn-post-edit {
+    background-color: grey;
+    border: 1px solid black;
+    margin: 5px;
+    padding: 5px;
+    border-radius: 10px;
+    color: $background-default;
+}

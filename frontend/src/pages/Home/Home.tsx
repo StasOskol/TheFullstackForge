@@ -1,14 +1,20 @@
 import { useEffect, useState } from 'react';
+
 import './Home.scss';
 
 import { postsController } from '@/services/api/controllers/post-controller';
+
 import { getDefaultPageable, Pageable } from '@/types/common/pageable.type';
 import { PostDto } from '@/types/post/post.type';
+
+import ShowPost from '@/components/home/ShowPost';
 
 const Home = () => {
     const [posts, setPosts] = useState<PostDto[]>([]);
     const [contentPost, setContentPost] = useState('');
     const [error, setError] = useState('');
+
+    const [postActiveId, setPostActiveId] = useState<number | undefined>(undefined);
 
     const [pageable] = useState<Pageable>(getDefaultPageable());
 
@@ -22,6 +28,7 @@ const Home = () => {
 
     useEffect(() => {
         fetchPosts();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const createNewPost = () => {
@@ -44,10 +51,18 @@ const Home = () => {
                 {
                     posts && posts.length !== 0 ?
                         posts.map((item, key) => (
-                            <li key={key}>{item.content}</li>
+                            <li key={key}>
+                                {item.content}
+                                <button
+                                    className='btn-post-edit'
+                                    onClick={() => setPostActiveId(key + 1)}
+                                >
+                                    Просмотреть / Изменить
+                                </button>
+                            </li>
                         ))
-                :
-                    <li>Нет постов</li>
+                        :
+                        <li>Нет постов</li>
                 }
             </ul>
 
@@ -57,6 +72,9 @@ const Home = () => {
                 placeholder="Новый пост"
             />
             <button onClick={createNewPost}>Создать</button>
+            <ShowPost
+                postId={postActiveId}
+            />
         </div>
     );
 };
