@@ -1,11 +1,11 @@
-export type loginDto = {
+export type authLoginDto = {
     login: string,
     password: string
 }
 
-export type resLoginDto = {
+export type resAuthLoginDto = {
     token: string,
     type: string,
-    userId: string,
+    userId: number,
     username: string
 }
