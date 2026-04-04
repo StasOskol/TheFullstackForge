@@ -5,6 +5,6 @@ import { Pageable } from "@/types/common/pageable.type";
 
 export const postController = {
     getPost: (pageable: Pageable) => {
-        return api.post<resAuthLoginDto>(`/posts/?page=${pageable.page}&size=${pageable.size}&sort=${pageable.sort?.join(",")}`);
+        return api.get<resAuthLoginDto>(`/posts/?page=${pageable.page}&size=${pageable.size}&sort=${pageable.sort?.join(",")}`);
     }
 }

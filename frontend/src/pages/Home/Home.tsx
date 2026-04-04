@@ -4,14 +4,15 @@ import { postController } from '@/services/api/controllers/post-controller';
 import { getDefaultPageable, Pageable } from '@/types/common/pageable.type';
 
 const Home = () => {
-    const [data, setData] = useState<[]>();
+    // const [data, setData] = useState<[]>();
 
     const [pageable] = useState<Pageable>(getDefaultPageable());
 
     useEffect(() => {
         postController.getPost(pageable)
             .then((response) => {
-                setData(response.data);
+                console.log(response);
+                //setData(response.data);
             })
             .catch((error) => console.log(error));
     }, [pageable])
@@ -20,7 +21,6 @@ const Home = () => {
         <div className="container">
             <h1>Главная страница</h1>
             <p>Здесь будет контент главной страницы</p>
-            {data.}
         </div>
     </div>
 };
