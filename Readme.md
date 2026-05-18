@@ -1,9 +1,7 @@
 # The Fullstack Forge
 Фулстек-Кузница
 
-!!ВНИМАНИЕ!! Критические изменения, обновите backend-файлы и frontend-файлы
-
-> 04.04.2026 (описание работы с db + развёртывание backend + frontend)
+> 19.05.2026 (описание работы с db + развёртывание backend + frontend)
 
 - [Первый запуск db](#Первый-запуск-db)
 - [Обзор второй части работы с db - ТРИГЕРЫ](#Обзор-второй-части-работы-с-db---ТРИГЕРЫ)
@@ -36,6 +34,9 @@ mvn clean spring-boot:run
 mvn spring-boot:run
 ```
 ---
+
+## App
+Описание приложения будет в ветке `app`, переходим по ссылке <a href="https://github.com/StasOskol/TheFullstackForge/tree/app" target="_blank">App</a>
 
 ## Database
 
