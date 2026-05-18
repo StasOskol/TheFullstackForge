@@ -8,15 +8,6 @@ import org.mapstruct.NullValuePropertyMappingStrategy;
 import ru.parus.chirp.model.PostEntity;
 import ru.parus.chirp.model.dto.post.PostDto;
 
-/**
- * PostMapper
- * <p>
- *     Маппер для преобразования постов из сущности в ДТО и обратно
- * </p>
- *
- * @author Grachev.D.G  (zhulvern-92@mail.ru)
- * @version 31.01.2026
- */
 @Mapper(componentModel = "spring")
 public interface PostMapper {
 

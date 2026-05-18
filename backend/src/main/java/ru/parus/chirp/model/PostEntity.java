@@ -12,20 +12,11 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
-/**
- * PostEntity
- * <p>
- *     Сущность описывающая посты пользователя
- * </p>
- *
- * @author Grachev.D.G  (zhulvern-92@mail.ru)
- * @version 30.01.2026
- */
 @Getter
 @Setter
 @Entity
 @Table(name = "posts")
-public class PostEntity  extends BaseEntity {
+public class PostEntity extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

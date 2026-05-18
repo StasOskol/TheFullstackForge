@@ -5,14 +5,6 @@ import org.springframework.data.domain.Pageable;
 import ru.parus.chirp.model.UserEntity;
 import ru.parus.chirp.model.dto.UserDto;
 
-/**
- * UserService
- * <p>
- * </p>
- *
- * @author Grachev.D.G  (zhulvern-92@mail.ru)
- * @version 30.01.2026
- */
 public interface UserService {
     UserEntity getCurrentUserEntity();
 

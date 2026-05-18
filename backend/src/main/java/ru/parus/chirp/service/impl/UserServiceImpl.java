@@ -13,15 +13,6 @@ import ru.parus.chirp.model.dto.UserDto;
 import ru.parus.chirp.repository.UserRepository;
 import ru.parus.chirp.service.UserService;
 
-/**
- * UserServiceImpl
- * <p>
- *     Cервис для работы с пользователями системы
- * </p>
- *
- * @author Grachev.D.G  (zhulvern-92@mail.ru)
- * @version 30.01.2026
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor

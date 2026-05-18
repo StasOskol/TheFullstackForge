@@ -18,15 +18,6 @@ import ru.parus.chirp.service.NotificationService;
 import ru.parus.chirp.service.PostService;
 import ru.parus.chirp.service.UserService;
 
-/**
- * PostServiceImpl
- * <p>
- *     Базовая реализация сервиса постов
- * </p>
- *
- * @author Grachev.D.G  (zhulvern-92@mail.ru)
- * @version 30.01.2026
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor

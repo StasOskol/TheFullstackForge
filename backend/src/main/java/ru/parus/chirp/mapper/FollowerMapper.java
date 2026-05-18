@@ -5,14 +5,6 @@ import org.mapstruct.Mapping;
 import ru.parus.chirp.model.FollowerEntity;
 import ru.parus.chirp.model.dto.FollowerDto;
 
-/**
- * FollowerMapper
- * <p>
- * </p>
- *
- * @author Grachev.D.G  (zhulvern-92@mail.ru)
- * @version 21.02.2026
- */
 @Mapper(componentModel = "spring")
 public interface FollowerMapper {
 

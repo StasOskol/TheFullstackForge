@@ -9,15 +9,6 @@ import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.FilterDef;
 import org.hibernate.annotations.UpdateTimestamp;
 
-/**
- * BaseEntity
- * <p>
- *     Базовый класс сущностей
- * </p>
- *
- * @author Grachev.D.G  (zhulvern-92@mail.ru)
- * @version 30.01.2026
- */
 @MappedSuperclass
 @FilterDef(name = "isDeletedIsFalseFilter",
         defaultCondition = "deleted<>true")

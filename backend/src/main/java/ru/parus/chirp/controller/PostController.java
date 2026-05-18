@@ -38,7 +38,6 @@ public class PostController {
 
     private final PostService postService;
 
-
     @PostMapping("/")
     @Operation(summary = "Создание поста",
             description = "Создает пост только для авторизованного пользователя")
