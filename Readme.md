@@ -2,9 +2,10 @@
 
 Фулстек-Кузница
 
-> 04.04.2026 (описание работы с db + развёртывание backend + frontend)
+> 20.05.2026 (описание backend)
 
-- [](#)
+- [Анализ файлов backend и полный разбор](#Анализ-файлов-backend-и-полный-разбор)
+- [Вопросы по fullstack](#Вопросы-по-fullstack)
 
 ---
 
@@ -323,51 +324,73 @@ public class PostServiceImpl implements PostService { // PostServiceImpl нас�
         return result; // Возвращаем данные
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public Page<PostDto> index(final Pageable pageable) {
-        Page<PostEntity> pageEntities;
-        pageEntities = postRepository.findAll(pageable);
+    @Override // Бизнес логика для показа записей posts с пагинацией
+    @Transactional(readOnly = true) // Анотация, readOnly говорит о том, что данные только читаются, но не изменяются
+    public Page<PostDto> index(final Pageable pageable) { // Метод, который возращае список с пагинацией, принимает pageble, то есть параметры: сколько записей показывать, какую страницу с записями и сортировка
+        Page<PostEntity> pageEntities; // переменную для страницы сущностей
+        pageEntities = postRepository.findAll(pageable); // Поиск и вывод записей с пагинацией
         return new PageImpl<>(pageEntities.getContent().stream().map(postMapper::toDto).toList(),
                         pageable,
                         pageEntities.getContent().size()
-                );
+                ); // Возвращает новый объект с пагинацией, с записями, с определёнными размерами
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public PostDto show(Long id) {
+    @Override // Бизнес логика для показа записи, которая с определённым id
+    @Transactional(readOnly = true) // Анотация для просмотра записи (только для просмотра)
+    public PostDto show(Long id) { // Метод show который возвращает PostDto и принимает id
         PostEntity post = postRepository.findById(id)
-                .orElseThrow(NotExistException::new);
-        return postMapper.toDto(post);
+                .orElseThrow(NotExistException::new); // Поиск по БД по id, и сохраняет записи в переменную post, если нет, то бросает ошибку
+        return postMapper.toDto(post); // Возвращает данные преобразованные через mapper Dto
     }
 
-    @Override
-    @Transactional
-    public PostDto update(Long id, PostDto dto) {
-        UserEntity user = userService.getCurrentUserEntity();
-        PostEntity post = postRepository.findById(id).orElseThrow(NotExistException::new);
-        if (post.getOwner().getId().equals(user.getId())) {
-            postMapper.patchUpdate(dto, post);
-            postRepository.save(post);
-            return postMapper.toDto(post);
+    @Override // Бизнес логика для изменения данных
+    @Transactional // Анотация для метода, данные могут изменяется
+    public PostDto update(Long id, PostDto dto) { // Метод update, возвращает поля PostDto, принимает id и PostDto
+        UserEntity user = userService.getCurrentUserEntity(); // Получение текущего пользователя
+        PostEntity post = postRepository.findById(id).orElseThrow(NotExistException::new); // Поиск поста по id
+        if (post.getOwner().getId().equals(user.getId())) { // у текущего поста смотрим поле owner (автор записи), вытаскиваем id owner и сравниваем с user id
+            postMapper.patchUpdate(dto, post); // конвертировать и изменить с помощью mapper
+            postRepository.save(post); // сохранение в БД
+            return postMapper.toDto(post); // возвращаем post сконвертированный в PostDto
         }
-        throw new PermissionDeniedException();
+        throw new PermissionDeniedException(); // в противном случае выдаём ошибку
     }
 
-    @Override
-    @Transactional
-    public void delete(Long id) {
-        UserEntity user = userService.getCurrentUserEntity();
+    @Override // Бизнес логика для удаления
+    @Transactional // Анотация для метода, данные могут изменяется
+    public void delete(Long id) { // Метод ничего не возвращает, принимает id
+        UserEntity user = userService.getCurrentUserEntity();  // Получени текущего пользователя
         PostEntity post = postRepository.findById(id)
-                .orElseThrow(NotExistException::new);
-        if (post.getOwner().getId().equals(user.getId())) {
+                .orElseThrow(NotExistException::new); // Поиск поста по id 
+        if (post.getOwner().getId().equals(user.getId())) { // если owner совпадает с id текущего пользователя, то удалить пост из базы
             postRepository.delete(post);
         }
-        throw new PermissionDeniedException();
+        throw new PermissionDeniedException(); // В противном случае выдать ошибку
     }
 }
 ```
+
+файл `-> PostServiceImpl.java`:
+
+Этот файл, как прототип в с++, рассказывает какие функции существуют в проекте (кратко)
+
+```java
+package ru.parus.chirp.service; // экспорт
+
+import org.springframework.data.domain.Page; // Type, с пагинацией и PostDto
+import org.springframework.data.domain.Pageable;
+import ru.parus.chirp.model.dto.post.PostDto;
+
+public interface PostService { // Это не функция, !ВНИМАНИЕ!, это interface, отображение что есть, какие функции
+    PostDto create(final PostDto dto); // Метод create возвращающее PostDto, принимающий не изменяемые данные PostDto
+    Page<PostDto> index(final Pageable pageable); // Метод index, принимающий не изменяемые данные пагинации, возвращает данные PostDto  с пагинацией
+    PostDto show(Long id); // Метод show, который принимает id, возвращает PostDto
+    PostDto update(Long id, final PostDto dto); // Метод update, принимающий id и PostDto, возвращающий PostDto
+    void delete(Long id); // Метод не возращающий ничего, принимающий id
+}
+```
+
+`final` - параметры - нельзя переназначить ссылку. final параметр — это как прописанный в паспорте адрес прописки. Вы можете делать ремонт в квартире (менять содержимое объекта), но не можете переехать на другой адрес (изменить ссылку).
 
 - `-> controller`:
   Папка с контроллерами. Это ссылки для связи с `backend` сервисом. В проекте есть встроенный плагин `swagger`, который подсказывает, что за ссылка, какие входные и выходные данные.
