@@ -45,4 +45,11 @@ public class UserServiceImpl implements UserService {
         return userRepository.findById(id).map(userMapper::toDto)
                 .orElseThrow(NotExistUserException::new);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserEntity getUserEntityById(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new NotExistUserException("Пользователь с id " + id + " не найден"));
+    } 
 }

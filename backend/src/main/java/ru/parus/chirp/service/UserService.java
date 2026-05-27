@@ -11,4 +11,6 @@ public interface UserService {
     Page<UserDto> index(Pageable pageable, String username);
 
     UserDto show(Long id);
+
+    UserEntity getUserEntityById(Long id);
 }

@@ -2,10 +2,11 @@
 
 Фулстек-Кузница
 
-> 20.05.2026 (описание backend)
+> 20.05.2026 (задача по подаркам)
 
-- [Анализ файлов backend и полный разбор](#Анализ-файлов-backend-и-полный-разбор)
-- [Вопросы по fullstack](#Вопросы-по-fullstack)
+- [Условие задачи](#Условие-задачи)
+- [Процесс выполнения задачи](#Процесс-выполнения-задачи)
+- [Вопросы по задаче в процессе выполнения](#Вопросы-по-задаче-в-процессе-выполнения)
 
 ---
 
@@ -35,502 +36,460 @@ mvn spring-boot:run
 
 ---
 
-# Анализ файлов backend и полный разбор
+# Условие задачи
+Добавить механизм подарков и дать возможность пользователям его друг другу пересылать (по одному). Подарок должен иметь имя отправителя и комментарий
 
-1. Самый важный файл `pom.xml`
-   В нём описаны все зависимости, библиотеки используемые в проекте
+## Процесс выполнения задачи
+1. Зарегистрируем новых пользователей в системе для обмена подарками. Для регистрации будем использовать postman.Заходим в `Postman` и делаем 3 запроса, чтобы создать 3 новыйх пользователей. (Обратите внимание, сервера backend и frontend должны быть запущены):
+<img src='./img/postman-register.png' alt='регистрация через postman'/>
 
-2. Файл `backend => src => main => resources => application.yml`
-   Настройки подключения к базе данных.
+Я зарегистрировал пользователей:
+* Логин: Vasy Пароль: Vasy
+* Логин: Sveta Пароль: Sveta
+* Логин: Katy Пароль: Katy
 
-```yml
+Через `DBeaver` проверяем есть ли пользователи:
+<img src='./img/check-new-user-dbeaver.jpg' alt='проверка пользователей' />
 
-...
-datasource:
-  url: ${JDBC_URL:jdbc:postgresql://localhost:5432/twit_ru} // здесь описывается куда мы, к какой базе мы подключаемся, но она должны быть создана (например через dbeaver)
-  username: ${JDBC_USER:fs_admin} // логин для подключения к данной базе (в примере twit_ru)
-  password: ${JDBC_PASSWORD:admin123} // пароль для подключения к данной базе (в примере twit_ru)
-  driver-class-name: org.postgresql.Driver
-  dbcp2:
-    default-schema: public
-...
-flyway:
-  locations: classpath:/db/migration
-  driver-class-name: org.postgresql.Driver
-  user: ${JDBC_USER:fs_admin} // логин для подключения к данной базе (в примере twit_ru)
-  password: ${JDBC_PASSWORD:admin123} // пароль для подключения к данной базе (в примере twit_ru)
-  enabled: true
-  default-schema: public
-...
-```
+Пользователи зарегистрированы.
 
-Это не весь файл, а показаны только строчки, которые важны на данный момент
-
-3. Файлы миграции `backend => src => main => resources => db => migration => файлы`
-   Обратите внимение как названы файлы: `V1__create_t_users.sql` => `V1` - версия изменения базы данных, `__` - два нижных подчёркивания, далее описывается, что будет изменять базу, в нашем случае `создание`, то есть `create`, нижнее подчёркивание, что создаём, `t` - таблица, (если нужно в базе создать триггер, то `tg`), ну и название самой таблицы, то есть что будет создаваться в самой базе (таблица под названием users) `users`
-
-В папке `migration` есть ещё файлы, которые позволяют создавать, удалять и изменять базу в процессе приложения, удалять `V` нельзя или придётся сносить базу, но если база уже в продакшн, то потеряем данные.
-
-Разберём один из фалов:
-
+Далее создаём миграции, то есть создаём новые таблицы в БД для работы с подарками через приложение
+- Заходим `src -> main -> resources -> db -> migration`:
 ```sql
-CREATE TABLE IF NOT EXISTS users (
-    id BIGINT GENERATED ALWAYS AS IDENTITY primary key,
-    username varchar(50),
-    password_hash varchar(100) not null,
-    created_at  timestamp(6) without time zone default CURRENT_TIMESTAMP,
-    updated_at  timestamp(6) without time zone,
-    version INTEGER DEFAULT 0,
-    deleted boolean default false
+CREATE TABLE IF NOT EXISTS gift_types ( -- таблица с подарками
+    id BIGSERIAL PRIMARY KEY, -- id
+    name VARCHAR(50) NOT NULL UNIQUE, -- название подарка
+    description VARCHAR(200), -- Описание подарка
+    icon_url VARCHAR(500), -- Путь до icon
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- Время создания
 );
 
-create index if not exists users_username_idx ON users(username);
+CREATE TABLE IF NOT EXISTS gifts ( -- Таблица связей подарков с users
+    id BIGSERIAL PRIMARY KEY, -- id
+    from_user_id BIGINT NOT NULL, -- id отправителя
+    to_user_id BIGINT NOT NULL, -- id получателя
+    gift_type_id BIGINT NOT NULL, -- id подарка
+    comment VARCHAR(500), -- коммент к подарку
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- время создания
+    
+    CONSTRAINT fk_gifts_from_user FOREIGN KEY (from_user_id) REFERENCES users(id) ON DELETE CASCADE, -- CONSTRAINT - правило, ограничение. fk_gifts_from_user - имя правила FOREIGN KEY (from_user_id) Указывает, что поле from_user_id в таблице gifts - это внешний ключ. Его значения должны существовать в другой таблице. REFERENCES users(id). Ссылается на поле id в таблице users. То есть from_user_id в gifts = id в users. Что делать при удалении пользователя CASCADE - удалить все подарки этого пользователя
+    CONSTRAINT fk_gifts_to_user FOREIGN KEY (to_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_gifts_gift_type FOREIGN KEY (gift_type_id) REFERENCES gift_types(id)
+);
+
+-- Индексы для быстрых запросов
+CREATE INDEX idx_gifts_to_user ON gifts(to_user_id); // -- Создает быстрый справочник для поиска по полю to_user_id
+CREATE INDEX idx_gifts_from_user ON gifts(from_user_id);
+CREATE INDEX idx_gifts_created_at ON gifts(created_at);
+
+-- Добавляем базовые типы подарков
+INSERT INTO gift_types (name, description, icon_url) VALUES -- Заполнение полей 
+('rose', 'Красная роза', '/icons/rose.png'),
+('cake', 'Праздничный торт', '/icons/cake.png'),
+('bear', 'Плюшевый мишка', '/icons/bear.png'),
+('heart', 'Валентинка', '/icons/heart.png'),
+('star', 'Звезда', '/icons/star.png'),
+('coffee', 'Чашка кофе', '/icons/coffee.png'),
+('flower', 'Букет цветов', '/icons/flower.png'),
+('chocolate', 'Коробка конфет', '/icons/chocolate.png');
+ON CONFLICT (name) DO NOTHING; --Пропуск, если такие данные в базе существуют
 ```
 
-Уже знакомый синтаксис, создание таблицы `users` c полями (обратите внимание, что `if not exist` важен):
+Проверяем через DBeaver, что записи и таблицы появились. Если всё успешно, продолжаем. Успешный запуск:
+<img src='./img/completed play gift.png' alt='успешный запуск с новыми таблицами' />
 
-- id
-- username
-- password_hash
-- created_at
-- updated_at
-- version
-- deleted
-
-и создание index для быстрого поиска нужного user по `username`
-
-Посмотрите содержимое других файлов и проанализируйте их.
-
-То есть, если Вам понадобится в проекте создать таблицу, триггер, функцию в `db`, то нужно создать следующий файлик, в названии описать, что он делает в `db` и написать код `SQL`.
-
-Если вы удалите файлик, или попытаетесь изменить содержимое, после запуска в готовую `db`, то у вас будет расходится хеш-сумма, что приведёт к потере данный.
-
-4. Рассмотрим файлы `backend -> src -> main -> java -> ru -> parus -> chirp`:
-
-- `-> config`
-  В этой папке настройки проекта, обратите внимание на файл `SecurityConfig.java`:
-
+Далее создаём модель под тип подарков, переходим `src/main/java/ru/parus/chirp/model` и создаём `GiftTypeEntity.java`:
 ```java
-...
-.authorizeHttpRequests(auth -> auth
-  .requestMatchers(
-    "/swagger-ui/**",
-    "/v3/api-docs/**",
-    "/api/v1/auth/**",
-    "/error",
-    "/actuator/health"
-  ).permitAll()
-  .anyRequest().authenticated()
-)
-...
-```
+package ru.parus.chirp.model; // Указание, где находится класс
 
-В этих строках заложены `router`, которые доступны без `token` ключа. Все остальные контроллеры работают только с ключом.
+import jakarta.persistence.*; // Подключение @Table, @Id, GenerationType и т.д.
+import lombok.Data; // @Data
+import java.time.LocalDateTime; // Для created_at
 
-Так как мы в предыдущем рассматривали создание `post`, то рассмотрим для примера контроллер для `posts` и другие файлы для работы с базой и системой.
-
-- `-> model`
-Первое, что создаётся для работы с таблицей - это модель данных с полями.
-
-Рассматриваем файл `-> dto -> post PostDto.java`:
-```java
-package ru.parus.chirp.model.dto.post; // Подключение к проекту (как експорт, чтобы другие файлы знали, где находится файл PostDto)
-
-import java.io.Serializable; // Преобразование файла с полями в байты для передачи по сети http-сессиях
-import lombok.Data; // библиотека для генерации геттеров и сеттеров автоматически
-
-@Data // Data - от lombok: автоматическая генерация геттеров и сеттеров
-public class PostDto implements Serializable { // Создание класса с Serializable
-    private String content; // Поля из таблицы Post с типами
-    private Long userId;
-}
-```
-
-Так нужно описывать поля, которые находятся в таблице. Берём из `db`.
-
-Создаём следующий файл `PostEntity.java` (в нашем случае мы просто рассмотрим, так как он уже создан и в проекте существует):
-```java
-package ru.parus.chirp.model; // эксорт, чтобы другие файлы видели PostEntity.java
-
-import jakarta.persistence.Column; // jakarta - связь таблиц с полями из db
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import lombok.Getter; // библиотека для автоматического написания get
-import lombok.Setter; // -||- set
-
-@Getter // Автоматическое создание get
-@Setter // Автоматическое создание set
-@Entity // Это строка говорит что всё описанное в классе соответсвует таблице в БД
-@Table(name = "posts") // Таблица в базе с названием posts в БД
-public class PostEntity extends BaseEntity { // Класс PostEntity, который насоедует поля из класса BaseEntity. В классе BaseEntity есть поля, которые должны быть у всех таблиц по умолчанию, это поля даты создания записи, даты измения и другие, то есть файл BaseEntity нужен по умолчанию
-    @Id // Поле id в таблице posts. Это не простой id, а первичный ключ, используемый для поиска
-    @GeneratedValue(strategy = GenerationType.IDENTITY) // Эта строка говорит о том, что при создании нового поста поле id генерируется автоматически, полагается на автоинкремент в связи с БД (автоинкремент + 1)
-    private Long id; // Само поле id  в таблице
-
-    @ManyToOne(fetch = FetchType.LAZY) // Описание поля - связь один ко многим, то есть постов может быть много, а автор поста только один. fetch - ленивая загрузка, то есть данные не загружаются сразу из БД, а только когда вызовется post.getOwner()
-    @JoinColumn(name = "user_id") // Поле для внешнего ключа, в нашем случае user_id, чтобы быстро находить все записи у данного пользователя. Эта колонка будет ссылаться на таблицу user и из неё брать id
-    private UserEntity owner; // Само поле owner, ссылка на объект пользователя
-
-    @Column(name = "content", nullable = false) // Колонка в таблице под названием content, не может быть пустым
-    private String content; // Само поле в приложении
-}
-```
-
-Этот файл связывает таблицу `db` с полями `backend`-приложения.
-
-- `-> repository`
-Следующий файл для создания (рассмотрения) `PostRepository.java`
-
-Самый важный файл, для того чтобы подключить все сущности и соотнести с БД.
-
-```java
-package ru.parus.chirp.repository; // Экспорт файла
-
-import org.springframework.data.jpa.repository.JpaRepository; // Подключение CRUD-операции, пагинацию, сортировку
-import ru.parus.chirp.model.PostEntity; // Подключаем модель PostEntity
-
-public interface PostRepository extends JpaRepository<PostEntity, Long> { // Описание действий с базой
-}
-```
-
-Подключение методов create, update, delete и других методов взаимодействия с БД
-
-- `-> mapper`: 
-
-Зачем нужен Mapper (маппер)?
-
-В любом приложении есть два представления данных:
-```java
-// Entity - для базы данных (внутреннее)
-PostEntity {
+@Data
+@Entity // Соответствие БД
+@Table(name = "gift_types")
+public class GiftTypeEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private UserEntity owner;  // ← целый объект!
-    private String content;
-}
 
-// DTO - для клиента (внешнее)
-PostDto {
-    private String content;
-    private Long userId;       // ← только ID пользователя
-}
-```
+    @Column(name  = "name", nullable = false)
+    private String name;
 
-Как превратить одно в другое?
+    private String description;
 
-Ручное копирование (плохо)
-* Минусы: много повторяющегося кода, легко ошибиться, трудно поддерживать
+    @Column(name = "icon_url")
+    private String iconUrl;
 
-Решение:
-```java
-// Один раз описали правила:
-@Mapping(target = "userId", source = "owner.id")
-PostDto toDto(PostEntity entity);
-
-// И используем везде:
-PostDto dto = postMapper.toDto(entity);  // готово!
-```
-
-Разберём строки кода файла `PostMapper.java`:
-```java
-package ru.parus.chirp.mapper; // экспорт
-
-import org.mapstruct.BeanMapping; // аннотации MapStruct для описания правил преобразования
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
-import org.mapstruct.NullValuePropertyMappingStrategy;
-import ru.parus.chirp.model.PostEntity; // Преобразование данных из одного в другой
-import ru.parus.chirp.model.dto.post.PostDto;
-
-@Mapper(componentModel = "spring") // Подключение Mapper
-public interface PostMapper { // Создаём интерфейс
-
-    @Mapping(target = "userId", source = "owner.id") // превращает Entity (из БД) в DTO (для клиента). В Entity нет поля userId, есть owner.id. @Mapping объясняет связь: target = "userId" → поле в DTO source = "owner.id" откуда взять значение
-    PostDto toDto(PostEntity entity); // Преобразует данные из БД и преврати их в формат для клиента (DTO)
-
-    PostEntity toEntity(PostDto dto); // данные от клиента (DTO) -> сохрани в БД (Entity)
-
-    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE) // Анатация, что делать (объясняем приложению, что делать), если значение null, ничего нет, то игнорировать поле, не трогать entity-данные в базе
-    void patchUpdate(PostDto dto, @MappingTarget PostEntity entity); // Частичное обновление данных. Принимает данные от клиента с полями PostDto -> преобразуем PostEntity в БД через mapper
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
 }
 ```
 
-Аналогия: переводчик с русского на английский
-Представьте, что:
-
-* PostEntity = русский язык (внутренний, для базы данных)
-* PostDto = английский язык (внешний, для клиента/браузера)
-* Маппер = переводчик, который умеет:
-
-1. Переводить с русского на английский (toDto)
-2. Переводить с английского на русский (toEntity)
-3. Исправлять текст в уже существующем документе (patchUpdate)
-
-- `-> services`:
-Бизнес логика и описание методов
-
-Если соотносить с языком `c++`, что если функции находятся ниже функции main, то нужно создавать `прототип`.
-
-Тут тоже самое, если мы хотим описать функции, что они делают, то нужно сначала описать, что за функции и что возвращают.
-
-Начнём с написанием самой логики:
-файл `-> impl -> PostServiceImpl.java`:
+Далее создаём сущность entity для Gift. Переходим `src/main/java/ru/parus/chirp/model` и создаём `GiftEntity`:
 ```java
-package ru.parus.chirp.service.impl; // экспорт
+package ru.parus.chirp.model;
 
-import lombok.RequiredArgsConstructor; // Логирование (ошибки)
+import jakarta.persistence.*;
+import lombok.Data;
+import java.time.LocalDateTime;
+
+@Data
+@Entity
+@Table(name = "gifts")
+public class GiftEntity {
+    
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @Column(name = "from_user_id", nullable = false)
+    private Long fromUserId;
+    
+    @Column(name = "to_user_id", nullable = false)
+    private Long toUserId;
+    
+    @Column(name = "gift_type_id", nullable = false)
+    private Long giftTypeId;
+    
+    private String comment;
+    
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+}
+```
+
+Далее описываем `dto`, создаём в папке `model -> dto` папку gift:
+* И создаём файл `GiftTypeDto.java`
+```java
+package ru.parus.chirp.model.dto.gift;
+
+import lombok.Data;
+
+@Data
+public class GiftTypeDto {
+    private Long id;
+    private String name;
+    private String description;
+    private String iconUrl;
+}
+```
+
+* Создаём файл `GiftDto.java`
+```java
+package ru.parus.chirp.model.dto.gift;
+
+import lombok.Data;
+import java.time.LocalDateTime;
+
+@Data
+public class GiftDto {
+    private Long id;
+    private Long fromUserId;
+    private String fromUsername;
+    private Long toUserId;
+    private String toUsername;
+    private GiftTypeDto giftType;
+    private String comment;
+    private LocalDateTime createdAt;
+}
+```
+
+Далее важный файл для работы с интерфейсом, подключается методы к БД:
+Переходим `src/main/java/ru/parus/chirp/repository/` и создаём файл `GiftTypeRepository.java`:
+```java
+package ru.parus.chirp.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import ru.parus.chirp.model.GiftTypeEntity;
+
+public interface GiftTypeRepository extends JpaRepository<GiftTypeEntity, Long> {
+}
+```
+
+И создаём там же `GiftRepository.java`:
+```java
+package ru.parus.chirp.repository;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import ru.parus.chirp.model.GiftEntity;
+
+public interface GiftRepository extends JpaRepository<GiftEntity, Long> {
+    
+    // Найти все подарки, где пользователь - ПОЛУЧАТЕЛЬ
+    Page<GiftEntity> findByToUserIdOrderByCreatedAtDesc(Long toUserId, Pageable pageable);
+    
+    // Найти все подарки, где пользователь - ОТПРАВИТЕЛЬ
+    Page<GiftEntity> findByFromUserIdOrderByCreatedAtDesc(Long fromUserId, Pageable pageable);
+}
+```
+
+Создаём преобразователь Entity в Dto и обратно, по пути `src/main/java/ru/parus/chirp/mapper` создаём `GiftMapper.java`:
+```java
+package ru.parus.chirp.mapper;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+import ru.parus.chirp.model.GiftEntity;
+import ru.parus.chirp.model.GiftTypeEntity;
+import ru.parus.chirp.model.UserEntity;
+import ru.parus.chirp.model.dto.gift.GiftDto;
+import ru.parus.chirp.model.dto.gift.GiftTypeDto;
+import ru.parus.chirp.repository.GiftTypeRepository;
+import ru.parus.chirp.repository.UserRepository;
+
+@Component
+@RequiredArgsConstructor
+public class GiftMapper {
+    
+    private final UserRepository userRepository;
+    private final GiftTypeRepository giftTypeRepository;
+    
+    public GiftDto toDto(GiftEntity entity) {
+        if (entity == null) return null;
+        
+        GiftDto dto = new GiftDto();
+        dto.setId(entity.getId());
+        dto.setFromUserId(entity.getFromUserId());
+        dto.setToUserId(entity.getToUserId());
+        dto.setComment(entity.getComment());
+        dto.setCreatedAt(entity.getCreatedAt());
+        
+        // Получаем имя отправителя
+        UserEntity fromUser = userRepository.findById(entity.getFromUserId()).orElse(null);
+        if (fromUser != null) {
+            dto.setFromUsername(fromUser.getUsername());
+        }
+        
+        // Получаем имя получателя
+        UserEntity toUser = userRepository.findById(entity.getToUserId()).orElse(null);
+        if (toUser != null) {
+            dto.setToUsername(toUser.getUsername());
+        }
+        
+        // Получаем тип подарка
+        GiftTypeEntity giftType = giftTypeRepository.findById(entity.getGiftTypeId()).orElse(null);
+        if (giftType != null) {
+            GiftTypeDto typeDto = new GiftTypeDto();
+            typeDto.setId(giftType.getId());
+            typeDto.setName(giftType.getName());
+            typeDto.setDescription(giftType.getDescription());
+            typeDto.setIconUrl(giftType.getIconUrl());
+            dto.setGiftType(typeDto);
+        }
+        
+        return dto;
+    }
+}
+```
+
+Создаём интерфейс, то есть описываем все методы, которые будут осуществлять работу приложения. По пути `src/main/java/ru/parus/chirp/service` создаём файл `GiftService.java`:
+```java
+package ru.parus.chirp.service;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import ru.parus.chirp.model.dto.gift.CreateGiftRequest;
+import ru.parus.chirp.model.dto.gift.GiftDto;
+
+public interface GiftService {
+    
+    GiftDto sendGift(CreateGiftRequest request);
+    
+    Page<GiftDto> getMyReceivedGifts(Pageable pageable);
+    
+    Page<GiftDto> getMySentGifts(Pageable pageable);
+    
+    GiftDto getGiftById(Long id);
+}
+```
+
+Создаём сам файл с методами, работой методов: `src/main/java/ru/parus/chirp/service/impl` создаём файл `GiftServiceImpl.java`:
+```java
+package ru.parus.chirp.service.impl;
+
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page; // Пагинация
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.parus.chirp.exception.NotExistException; // Подключение контрукторов из других файлов
-import ru.parus.chirp.exception.PermissionDeniedException;
-import ru.parus.chirp.mapper.PostMapper;
-import ru.parus.chirp.model.PostEntity;
+import ru.parus.chirp.exception.NotExistException;
+import ru.parus.chirp.mapper.GiftMapper;
+import ru.parus.chirp.model.GiftEntity;
 import ru.parus.chirp.model.UserEntity;
-import ru.parus.chirp.model.dto.post.PostDto;
-import ru.parus.chirp.repository.PostRepository;
-import ru.parus.chirp.service.NotificationService;
-import ru.parus.chirp.service.PostService;
+import ru.parus.chirp.model.dto.gift.CreateGiftRequest;
+import ru.parus.chirp.model.dto.gift.GiftDto;
+import ru.parus.chirp.repository.GiftRepository;
+import ru.parus.chirp.repository.GiftTypeRepository;
+import ru.parus.chirp.service.GiftService;
 import ru.parus.chirp.service.UserService;
 
-@Slf4j // для логирования
-@Service // регистрируем как Spring бин
-@RequiredArgsConstructor // конструктор для final полей
-public class PostServiceImpl implements PostService { // PostServiceImpl наследуется от прототипа в PostService, будет описан позже
+import java.time.LocalDateTime;
 
-    // Создаём переменные в которых лежат зависимости из других файлов, final - говорит о том, что мы не можем их в процессе менять
-    private final PostRepository postRepository; // работа с БД
-    private final PostMapper postMapper; // конвертация Entity ↔ DTO
-    private final UserService userService; // получение текущего пользователя
-    private final NotificationService notificationService; // отправка уведомлений
-
-    @Override // Бизнес логика для создания поста
-    @Transactional // "Всё, что внутри метода, делай в одной транзакции" Если что-то пойдёт не так → всё откатится (ROLLBACK)
-    public PostDto create(PostDto dto) { // Функция create, которая возвращет PostDto, и принимает dto
-        UserEntity user = userService.getCurrentUserEntity(); // Создаём user на основе UserEntity
-        PostEntity postEntity = postMapper.toEntity(dto); // Создаём объект с полями постов, через mapper преобразуем входящие данные в PostEntity через mapper
-        postEntity.setOwner(user); // установи в объекте postEntity поле owner - текущего пользователя
-        var result = postMapper.toDto(postRepository.save(postEntity)); // Сохрани в БД postEntity и данные которые сохранены преобразуй через mapper в Dto и помести в переменную result
-        notificationService.notifyAsyncNewPost(user.getId()); // Не ждем завершения!, и отправляем уведомление
-        return result; // Возвращаем данные
-    }
-
-    @Override // Бизнес логика для показа записей posts с пагинацией
-    @Transactional(readOnly = true) // Анотация, readOnly говорит о том, что данные только читаются, но не изменяются
-    public Page<PostDto> index(final Pageable pageable) { // Метод, который возращае список с пагинацией, принимает pageble, то есть параметры: сколько записей показывать, какую страницу с записями и сортировка
-        Page<PostEntity> pageEntities; // переменную для страницы сущностей
-        pageEntities = postRepository.findAll(pageable); // Поиск и вывод записей с пагинацией
-        return new PageImpl<>(pageEntities.getContent().stream().map(postMapper::toDto).toList(),
-                        pageable,
-                        pageEntities.getContent().size()
-                ); // Возвращает новый объект с пагинацией, с записями, с определёнными размерами
-    }
-
-    @Override // Бизнес логика для показа записи, которая с определённым id
-    @Transactional(readOnly = true) // Анотация для просмотра записи (только для просмотра)
-    public PostDto show(Long id) { // Метод show который возвращает PostDto и принимает id
-        PostEntity post = postRepository.findById(id)
-                .orElseThrow(NotExistException::new); // Поиск по БД по id, и сохраняет записи в переменную post, если нет, то бросает ошибку
-        return postMapper.toDto(post); // Возвращает данные преобразованные через mapper Dto
-    }
-
-    @Override // Бизнес логика для изменения данных
-    @Transactional // Анотация для метода, данные могут изменяется
-    public PostDto update(Long id, PostDto dto) { // Метод update, возвращает поля PostDto, принимает id и PostDto
-        UserEntity user = userService.getCurrentUserEntity(); // Получение текущего пользователя
-        PostEntity post = postRepository.findById(id).orElseThrow(NotExistException::new); // Поиск поста по id
-        if (post.getOwner().getId().equals(user.getId())) { // у текущего поста смотрим поле owner (автор записи), вытаскиваем id owner и сравниваем с user id
-            postMapper.patchUpdate(dto, post); // конвертировать и изменить с помощью mapper
-            postRepository.save(post); // сохранение в БД
-            return postMapper.toDto(post); // возвращаем post сконвертированный в PostDto
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class GiftServiceImpl implements GiftService {
+    
+    private final GiftRepository giftRepository;
+    private final GiftTypeRepository giftTypeRepository;
+    private final GiftMapper giftMapper;
+    private final UserService userService;
+    
+    @Override
+    @Transactional
+    public GiftDto sendGift(CreateGiftRequest request) {  // ← Принимаем объект
+        UserEntity currentUser = userService.getCurrentUserEntity();
+        
+        // Извлекаем данные из объекта request
+        Long toUserId = request.getToUserId();        // ← получаем ID получателя
+        Long giftTypeId = request.getGiftTypeId();    // ← получаем ID типа подарка
+        String comment = request.getComment();        // ← получаем комментарий
+        
+        // Проверяем существование получателя
+        UserEntity toUser = userService.getUserEntityById(toUserId);
+        if (toUser == null) {
+            throw new NotExistException("Получатель не найден");
         }
-        throw new PermissionDeniedException(); // в противном случае выдаём ошибку
-    }
-
-    @Override // Бизнес логика для удаления
-    @Transactional // Анотация для метода, данные могут изменяется
-    public void delete(Long id) { // Метод ничего не возвращает, принимает id
-        UserEntity user = userService.getCurrentUserEntity();  // Получени текущего пользователя
-        PostEntity post = postRepository.findById(id)
-                .orElseThrow(NotExistException::new); // Поиск поста по id 
-        if (post.getOwner().getId().equals(user.getId())) { // если owner совпадает с id текущего пользователя, то удалить пост из базы
-            postRepository.delete(post);
+        
+        // Проверяем существование типа подарка
+        if (!giftTypeRepository.existsById(giftTypeId)) {
+            throw new NotExistException("Тип подарка не найден");
         }
-        throw new PermissionDeniedException(); // В противном случае выдать ошибку
+        
+        // Нельзя отправить подарок самому себе
+        if (currentUser.getId().equals(toUserId)) {
+            throw new IllegalArgumentException("Нельзя отправить подарок самому себе");
+        }
+        
+        // Создаем подарок
+        GiftEntity gift = new GiftEntity();
+        gift.setFromUserId(currentUser.getId());
+        gift.setToUserId(toUserId);
+        gift.setGiftTypeId(giftTypeId);
+        gift.setComment(comment);
+        gift.setCreatedAt(LocalDateTime.now());
+        
+        GiftEntity saved = giftRepository.save(gift);
+        log.info("Подарок отправлен: от {} к {}", currentUser.getId(), toUserId);
+        
+        return giftMapper.toDto(saved);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Page<GiftDto> getMyReceivedGifts(Pageable pageable) {
+        UserEntity currentUser = userService.getCurrentUserEntity();
+        Page<GiftEntity> gifts = giftRepository.findByToUserIdOrderByCreatedAtDesc(
+                currentUser.getId(), pageable);
+        
+        return new PageImpl<>(
+                gifts.getContent().stream()
+                        .map(giftMapper::toDto)
+                        .toList(),
+                pageable,
+                gifts.getTotalElements()
+        );
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Page<GiftDto> getMySentGifts(Pageable pageable) {
+        UserEntity currentUser = userService.getCurrentUserEntity();
+        Page<GiftEntity> gifts = giftRepository.findByFromUserIdOrderByCreatedAtDesc(
+                currentUser.getId(), pageable);
+        
+        return new PageImpl<>(
+                gifts.getContent().stream()
+                        .map(giftMapper::toDto)
+                        .toList(),
+                pageable,
+                gifts.getTotalElements()
+        );
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public GiftDto getGiftById(Long id) {
+        GiftEntity gift = giftRepository.findById(id)
+                .orElseThrow(() -> new NotExistException("Подарок не найден"));
+        return giftMapper.toDto(gift);
     }
 }
 ```
 
-файл `-> PostServiceImpl.java`:
-
-Этот файл, как прототип в с++, рассказывает какие функции существуют в проекте (кратко)
-
+Остался последний шаг. Создаём по пути `src/main/java/ru/parus/chirp/controller` файл `GiftController.java`:
 ```java
-package ru.parus.chirp.service; // экспорт
+package ru.parus.chirp.controller;
 
-import org.springframework.data.domain.Page; // Type, с пагинацией и PostDto
-import org.springframework.data.domain.Pageable;
-import ru.parus.chirp.model.dto.post.PostDto;
-
-public interface PostService { // Это не функция, !ВНИМАНИЕ!, это interface, отображение что есть, какие функции
-    PostDto create(final PostDto dto); // Метод create возвращающее PostDto, принимающий не изменяемые данные PostDto
-    Page<PostDto> index(final Pageable pageable); // Метод index, принимающий не изменяемые данные пагинации, возвращает данные PostDto  с пагинацией
-    PostDto show(Long id); // Метод show, который принимает id, возвращает PostDto
-    PostDto update(Long id, final PostDto dto); // Метод update, принимающий id и PostDto, возвращающий PostDto
-    void delete(Long id); // Метод не возращающий ничего, принимающий id
-}
-```
-
-`final` - параметры - нельзя переназначить ссылку. final параметр — это как прописанный в паспорте адрес прописки. Вы можете делать ремонт в квартире (менять содержимое объекта), но не можете переехать на другой адрес (изменить ссылку).
-
-- `-> controller`:
-  Папка с контроллерами. Это ссылки для связи с `backend` сервисом. В проекте есть встроенный плагин `swagger`, который подсказывает, что за ссылка, какие входные и выходные данные.
-
-```java
-package ru.parus.chirp.controller; // REST-контроллеры приложения
-
-import io.swagger.v3.oas.annotations.Operation; // библиотека swagger с автоматической генерацией документации
-import io.swagger.v3.oas.annotations.responses.ApiResponse; // библиотека swagger
-import io.swagger.v3.oas.annotations.responses.ApiResponses; // библиотека swagger
-import lombok.RequiredArgsConstructor; // создаёт конструктор для final полей (компиляция и дополнения нужных полей)
-import lombok.extern.slf4j.Slf4j; // добавляет поле log для логирования
-import org.springframework.data.domain.Page; // Spring-аннотации для REST-эндпоинтов Пагинация
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import ru.parus.chirp.model.dto.post.PostDto; // Dto - данные которые должны получать или передаваться (поля)
-import ru.parus.chirp.service.PostService;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+import ru.parus.chirp.model.dto.gift.GiftDto;
+import ru.parus.chirp.service.GiftService;
 
-@Slf4j // Логирование. Реакция на ошибки и вывод в консоль
-@RestController // Это контроллер (get, post, put, patch, delete) - c возвращением json-данных
-@RequestMapping(value = "/posts", produces = MediaType.APPLICATION_JSON_VALUE) // Базовый router для работы с постами. (produces - ответ json-данными)
-@RequiredArgsConstructor // Автоматическая генерация полей, нужных для компиляции
-public class PostController { // Класс для работы с Post
-
-    private final PostService postService; // Конструктор, которые описывает модель (какие поля и что делает)
-
-    @PostMapping("/") // Если продолжение route (post - создание объекта внутри таблицы)
-    @Operation(summary = "Создание поста", // Описание router
-            description = "Создает пост только для авторизованного пользователя")
-    @ApiResponses(value = { // В случае успешного ответа
-            @ApiResponse(responseCode = "200", description = "Успешный ответ"),
-    })
-    public ResponseEntity<PostDto> create(@RequestBody PostDto dto) { // публичная api, принимающее PostDto с полями (String content; private Long userId), описаны поля в PostDto. create - создание нового объекта с этими же полями
-        return ResponseEntity.ok(postService.create(dto)); // Вернуть статус ok с объектом созданным
+@RestController
+@RequestMapping("/api/gifts")
+@RequiredArgsConstructor
+public class GiftController {
+    
+    private final GiftService giftService;
+    
+    @PostMapping("/send")
+    @ResponseStatus(HttpStatus.CREATED)
+    public GiftDto sendGift(
+            @RequestParam Long toUserId,
+            @RequestParam Long giftTypeId,
+            @RequestParam(required = false) String comment) {
+        return giftService.sendGift(toUserId, giftTypeId, comment);
     }
-
-    @GetMapping("/") // GetMapping - просмотр объектов с элементами пагинации
-    @Operation(summary = "Просмотр постов пользователя", // Описание api
-            description = "")
-    @ApiResponses(value = { // В случае успешного ответа
-            @ApiResponse(responseCode = "200", description = "Успешный ответ"),
-    })
-    public ResponseEntity<Page<PostDto>> index(@PageableDefault Pageable pageable) { // Возвращает страницы с PostDto c пагинацией поиск по индексу
-        return ResponseEntity.ok(postService.index(pageable));
+    
+    @GetMapping("/received")
+    public Page<GiftDto> getMyReceivedGifts(@PageableDefault(size = 20) Pageable pageable) {
+        return giftService.getMyReceivedGifts(pageable);
     }
-
-    @GetMapping("/{id}") // Просмотр по id
-    @Operation(summary = "Просмотр поста пользователя", // Описание
-            description = "")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Успешный ответ"),
-    })
-    public ResponseEntity<PostDto> show(@PathVariable Long id) { // show возвра Dto с поисеом по id
-        return ResponseEntity.ok(postService.show(id)); // Возврат самого поста
+    
+    @GetMapping("/sent")
+    public Page<GiftDto> getMySentGifts(@PageableDefault(size = 20) Pageable pageable) {
+        return giftService.getMySentGifts(pageable);
     }
-
-    @PatchMapping("/{id}") // Patch - изменение post
-    @Operation(summary = "Обновление поста пользователя",
-            description = "Требуется авторизация")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Успешный ответ"),
-    })
-    public ResponseEntity<PostDto> update(@PathVariable Long id, @RequestBody PostDto dto) { // update, изменение, принимает id post для изменения + тело изменения post dto
-        return ResponseEntity.ok(postService.update(id, dto));
+    
+    @GetMapping("/{id}")
+    public GiftDto getGiftById(@PathVariable Long id) {
+        return giftService.getGiftById(id);
     }
-
-    @DeleteMapping("/{id}") // Detele post
-    @Operation(summary = "Удаление поста пользователя",
-            description = "Требуется авторизация")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Успешный ответ"),
-    })
-    public ResponseEntity<Void> delete(@PathVariable Long id) { // Возвращает ничего, только статус Void, по id - принимает
-        postService.delete(id);
-        return ResponseEntity.noContent().build();
-    }
-
 }
 ```
 
-# Вопросы по fullstack
-
-1. Где смотреть состояние запроса?
-   Вкладка для отладки в браузере на стороне frontend: Сеть или Network, возможен исход блокировки запроса CORS.
-
-2. Как обойти CORS?
-   Если сработал CORS, это блокирока, чтобы не отрабатывали сторонние скрипты. Если ваш backend был на отдельном сервере (реальном), то CORS бы не срабатывал и любой браузер его открывал. Но для разработки нам нужно обойти CORS.
-
-- Для этого скачиваем браузер Google Chrome
-- Создаём ярлык на рабочем столе и переименовываем этот ярлык `Google Chrome NO CORS`, чтобы понимать что защита отключена в данном ярлыке
-- Далее правой кнопкой по ярлыку -> свойства -> ищем поле `Объект`
-- ДОБАВЛЯЕМ к написанному строку (через пробел): `--disable-web-security --user-data-dir="C:\Program Files\Google\Chrome\Application\chrome.exe"`
-- Открываем браузер через этот ярлык, сверху должна появится надпись: `Вы используете неподдерживаемый флаг командной строки: --disable-web-security. Стабильность и безопасность будут нарушены.`
-- Если эта надпись появилась, значит CORS отключён и запросы будут проходить.
-
-3. Где посмотреть token, сохранён ли он вообще?
-   На вкладке браузера `Application` в разделе `Storage` -> `local storage` -> `http://localhost:3000` справа вы будете наблюдать token ключ, он будет применяться, чтобы другие api срабатывали
-
-4. Как очистить данные локального хранилища (local starage)?
-   В браузере на панели разработчика заходим в `Console` и пишем команду:
-
-```bash
-localStorage.clear()
+Для правильной работы надо написать метод поиска user по id, для этого переходим `src/main/java/ru/parus/chirp/service/UserService.java` и дописываем строку: 
+```java
+UserEntity getUserEntityById(Long id);
 ```
 
-5. Для чего `application-local.yml`?
-   Для настроек локального запуска проекта, но не понятно как запускать именно этот файл
+Создаём файл для преобразования json-файла в java-данные. По пути `src/main/java/ru/parus/chirp/model/dto/gift` создаём файл `CreateGiftRequest.java`:
+```java
+package ru.parus.chirp.model.dto.gift;
 
-6. Какой правильный порядок создания backend-файлов?
-```
-src/main/java/ru/parus/chirp/
-│
-├── model/
-│   ├── PostEntity.java           (1. Сущность БД)
-│   └── dto/post/
-│       └── PostDto.java          (1. DTO)
-│
-├── repository/
-│   └── PostRepository.java       (2. JPA репозиторий)
-│
-├── mapper/
-│   └── PostMapper.java           (3. MapStruct маппер)
-│
-├── service/
-│   ├── PostService.java          (4. Интерфейс сервиса)
-│   └── impl/
-│       └── PostServiceImpl.java  (4. Реализация сервиса)
-│
-└── controller/
-    └── PostController.java       (5. REST контроллер)
+import lombok.Data;
+
+@Data
+public class CreateGiftRequest {
+    private Long toUserId;
+    private Long giftTypeId;
+    private String comment;
+}
 ```
 
-На вкладке браузера `Application` в разделе `Storage` -> `local storage` -> `http://localhost:3000` проверяем, там ничего не должно быть
+# Вопросы по задаче в процессе выполнения
+1. При добавлении новых записей в БД через миграцию - при повторном запуске дублируют созданные записи, как исправить?
+К этой записи: `INSERT INTO gift_types (name, description, icon_url) VALUES`, добавить: `ON CONFLICT (name) DO NOTHING;`
+
+2. 
