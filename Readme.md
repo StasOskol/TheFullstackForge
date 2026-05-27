@@ -2,10 +2,12 @@
 
 Фулстек-Кузница
 
-> 20.05.2026 (задача по подаркам)
+> 27.05.2026 (задача по подаркам)
 
 - [Условие задачи](#Условие-задачи)
 - [Процесс выполнения задачи](#Процесс-выполнения-задачи)
+- [Процесс выполнения задачи "backend"](#Процесс-выполнения-задачи-backend)
+- [Процесс выполнения задачи "frontend"](#Процесс-выполнения-задачи-frontend) 
 - [Вопросы по задаче в процессе выполнения](#Вопросы-по-задаче-в-процессе-выполнения)
 
 ---
@@ -40,6 +42,7 @@ mvn spring-boot:run
 Добавить механизм подарков и дать возможность пользователям его друг другу пересылать (по одному). Подарок должен иметь имя отправителя и комментарий
 
 ## Процесс выполнения задачи
+### Процесс выполнения задачи "backend"
 1. Зарегистрируем новых пользователей в системе для обмена подарками. Для регистрации будем использовать postman.Заходим в `Postman` и делаем 3 запроса, чтобы создать 3 новыйх пользователей. (Обратите внимание, сервера backend и frontend должны быть запущены):
 <img src='./img/postman-register.png' alt='регистрация через postman'/>
 
@@ -433,8 +436,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import ru.parus.chirp.model.dto.gift.CreateGiftRequest;
 import ru.parus.chirp.model.dto.gift.GiftDto;
 import ru.parus.chirp.service.GiftService;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/gifts")
@@ -445,11 +450,8 @@ public class GiftController {
     
     @PostMapping("/send")
     @ResponseStatus(HttpStatus.CREATED)
-    public GiftDto sendGift(
-            @RequestParam Long toUserId,
-            @RequestParam Long giftTypeId,
-            @RequestParam(required = false) String comment) {
-        return giftService.sendGift(toUserId, giftTypeId, comment);
+    public GiftDto sendGift(@Valid @RequestBody CreateGiftRequest request) {
+        return giftService.sendGift(request);
     }
     
     @GetMapping("/received")
@@ -487,6 +489,29 @@ public class CreateGiftRequest {
     private String comment;
 }
 ```
+
+Далее тестим, запускаем postman и получаем token для пользователя Vasy, как-будто мы через него зашли, заполняем в postman:
+<img src='./img/login-vasy.png' alt='login vasy'/>
+
+После нажатия на кнопку send, в ответе появится token, его копируем и создаём новый запрос в postman:
+<img src='./img/autorezation-vasy.png' alt='autorization-vasy' />
+
+в поле type выбираем `Bearer Token`, в поле `Token` вставляем что скопировали из предыдущего запроса `token`. Далее в меню выбираем `Body` -> `raw`, слева меняем на `JSON` и вставляем:
+```json
+{
+    "toUserId": 3,
+    "giftTypeId": 1,
+    "comment": "Света, это тебе роза!"
+}
+```
+
+пример, как должен выглядеть запрос и нажимаем send:
+
+<img src='./img/send-gift.png' alt='send gift' />
+
+Должен прийти ответ на ваш запрос и в БД появится в таблице `gifts` новая запись. Если появилось так как и в картинке запроса выше, то всё успешно. Работает. Переходим к подключению `frontend`.
+
+### Процесс выполнения задачи "frontend"
 
 # Вопросы по задаче в процессе выполнения
 1. При добавлении новых записей в БД через миграцию - при повторном запуске дублируют созданные записи, как исправить?
